@@ -1,0 +1,23 @@
+# Normalise line endings so the repository stays consistent across platforms.
+# Text files are stored with LF in the repository; Windows checkouts get CRLF.
+* text=auto eol=lf
+
+# Explicitly textual
+*.py    text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.json  text eol=lf
+*.csv   text eol=lf
+*.cff   text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.sh    text eol=lf
+
+# Binary (never convert)
+*.png   binary
+*.jpg   binary
+*.pdf   binary
+*.zip   binary
+*.pt    binary
+*.pth   binary
+*.pkl   binary
