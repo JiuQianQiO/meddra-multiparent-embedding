@@ -1,0 +1,21 @@
+{
+  "model_tag": "noGNN",
+  "experiment": "CODER",
+  "run_dir": "<RUN_ROOT>/CODER",
+  "cache_dir": "<CACHE_DIR>",
+  "script_source": "<RUN_ROOT>/CODER/meddra_full_trainer_noGNN.py",
+  "script_name": "meddra_full_trainer_noGNN.py",
+  "script_md5": "782b0a18ed8908e71014a815736771ac",
+  "cwd": "<RUN_ROOT>/CODER",
+  "argv": [
+    "<RUN_ROOT>/CODER/meddra_full_trainer_noGNN.py"
+  ],
+  "started_at": "2026-10-04 15:29:24",
+  "env": {
+    "MEDDRA_RUN_DIR": "<RUN_ROOT>/CODER",
+    "MEDDRA_OUTPUT_ROOT": "<RUN_ROOT>",
+    "MEDDRA_EXPERIMENT": "CODER",
+    "MEDDRA_CACHE_DIR": "<CACHE_DIR>",
+    "MEDDRA_CSV_PATH": "<WORKSPACE>/MEDDRA_DATA_29_0.csv"
+  }
+}

@@ -1,0 +1,19 @@
+{
+ "name": "B1_e5",
+ "timestamp": "2026-10-03T03:42:39",
+ "metrics": {
+  "accuracy": 0.8526,
+  "macro_f1": 0.8114,
+  "weighted_f1": 0.8521,
+  "probe_C": 4.0
+ },
+ "extra": {
+  "knn": {
+   "accuracy": 0.9244
+  },
+  "hf_model": "intfloat/e5-large-v2",
+  "pooling": "mean",
+  "max_len": 128,
+  "device": "cuda"
+ }
+}

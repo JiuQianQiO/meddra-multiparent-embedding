@@ -1,0 +1,27 @@
+# MedDRA source data are protected by the MSSO licence; never commit them
+MEDDRA_DATA_*.csv
+*.csv.bak
+
+# Training artefacts and caches (large; archived on Zenodo, not in the repository)
+outputs/
+runs/
+*.pt
+*.pkl
+*.ckpt
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/

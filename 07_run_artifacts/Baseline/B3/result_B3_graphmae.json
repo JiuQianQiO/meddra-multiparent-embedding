@@ -1,0 +1,27 @@
+{
+ "name": "B3_graphmae",
+ "timestamp": "2026-10-05T04:32:35",
+ "metrics": {
+  "accuracy": 0.841,
+  "macro_f1": 0.7827,
+  "weighted_f1": 0.8399,
+  "probe_C": 4.0,
+  "val_accuracy": 0.8427,
+  "val_macro_f1": 0.7836,
+  "val_weighted_f1": 0.8416,
+  "val_probe_curve": {
+   "0.25": 0.8159,
+   "1.0": 0.8326,
+   "4.0": 0.8427
+  },
+  "num_train_nodes": 97641,
+  "num_val_nodes": 10837,
+  "num_test_nodes": 12041
+ },
+ "extra": {
+  "hidden": 256,
+  "epochs": 300,
+  "folded": "同构图（四类边并集）",
+  "library": "PyG"
+ }
+}

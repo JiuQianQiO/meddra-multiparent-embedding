@@ -1,0 +1,22 @@
+{
+  "model_tag": "IND-noGNN",
+  "experiment": "IND-NOGNN-PUBMEDBERT",
+  "run_dir": "<RUN_ROOT>/IND-NOGNN-PUBMEDBERT",
+  "cache_dir": "<CACHE_DIR>",
+  "script_source": "<RUN_ROOT>/IND-NOGNN-PUBMEDBERT/Meddra_inductive_noGNN.py",
+  "script_name": "Meddra_inductive_noGNN.py",
+  "script_md5": "9bcf6e699ac137927dcc0be0e03e473a",
+  "cwd": "<RUN_ROOT>/IND-NOGNN-PUBMEDBERT",
+  "argv": [
+    "<RUN_ROOT>/IND-NOGNN-PUBMEDBERT/Meddra_inductive_noGNN.py"
+  ],
+  "started_at": "2026-10-03 08:35:27",
+  "env": {
+    "MEDDRA_RUN_DIR": "<RUN_ROOT>/IND-NOGNN-PUBMEDBERT",
+    "MEDDRA_OUTPUT_ROOT": "<RUN_ROOT>",
+    "MEDDRA_EXPERIMENT": "IND-NOGNN-PUBMEDBERT",
+    "MEDDRA_CACHE_DIR": "<CACHE_DIR>",
+    "MEDDRA_CSV_PATH": "<DATA_DIR>/MEDDRA_DATA_29_0.csv",
+    "MEDDRA_TEXT_MODEL_DIR": "<MODEL_DIR>/pubmedbert"
+  }
+}

@@ -1,0 +1,16 @@
+{
+ "name": "B2_ComplEx",
+ "timestamp": "2026-10-03T04:51:51",
+ "metrics": {
+  "accuracy": 0.1849,
+  "macro_f1": 0.0131,
+  "weighted_f1": 0.0618,
+  "probe_C": 0.25
+ },
+ "extra": {
+  "dim": 256,
+  "epochs": 100,
+  "triples": 266812,
+  "library": "pykeen"
+ }
+}

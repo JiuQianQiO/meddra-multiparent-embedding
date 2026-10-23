@@ -1,0 +1,5 @@
+# 外部基线资源台账（格式与 platform_resources.csv 对齐；'-' 表示平台监控未覆盖）
+# 配置,内存GB,显存GB,单轮耗时s,实际轮数
+B2_TransE,-,-,-,PyKEEN TransE; 100 epochs; 耗时 757s
+B2_RotatE,-,-,-,PyKEEN RotatE; 100 epochs; 耗时 1035s
+B2_ComplEx,-,-,-,PyKEEN ComplEx; 100 epochs; 耗时 1050s

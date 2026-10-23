@@ -1,0 +1,24 @@
+{
+  "model_tag": "SAGE",
+  "experiment": "C7",
+  "run_dir": "<RUN_ROOT>/V3-seed43",
+  "cache_dir": "<CACHE_DIR>",
+  "script_source": "<JBI_ROOT>/Seed/train_V3_seed43.py",
+  "script_name": "train_V3_seed43.py",
+  "script_md5": "1a5a1b0b12dfa8d94bcdca469c6f89a5",
+  "cwd": "<JBI_ROOT>/Seed",
+  "argv": [
+    "train_V3_seed43.py"
+  ],
+  "started_at": "2026-10-03 18:33:45",
+  "env": {
+    "MEDDRA_RUN_DIR": "<RUN_ROOT>/V3-seed43",
+    "MEDDRA_OUTPUT_ROOT": "<RUN_ROOT>",
+    "MEDDRA_EXPERIMENT": "C7",
+    "MEDDRA_CACHE_DIR": "<CACHE_DIR>",
+    "MEDDRA_CSV_PATH": "<DATA_DIR>/MEDDRA_DATA_29_0.csv",
+    "MEDDRA_TEXT_MODEL_DIR": "<MODEL_DIR>/pubmedbert",
+    "MEDDRA_SPLIT_SEED": "42",
+    "MEDDRA_TRAIN_SEED": "43"
+  }
+}

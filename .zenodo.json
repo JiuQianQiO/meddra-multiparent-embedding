@@ -1,0 +1,26 @@
+{
+  "title": "Reproduction package for: Medical Term Embedding for MedDRA Multi-Parent DAG - A Heterogeneous Graph Approach with Multi-Level Contrastive Learning",
+  "description": "<p>Reproduction code and experimental artefacts for a manuscript submitted to the <em>Journal of Biomedical Informatics</em> (JBI).</p><p>The method embeds MedDRA terms by combining term-name semantics (PubMedBERT) with the five-level multi-parent hierarchy, using a heterogeneous graph encoder and a multi-level weighted contrastive loss with positive-negative mutual exclusion.</p><p><strong>Contents</strong></p><ul><li><code>01_code/</code> &mdash; graph construction, training (SAGE / GAT / noGNN), inductive variants, seed re-runs, attribution diagnosis, and three external baselines (text embedding, knowledge-graph embedding, graph self-supervision).</li><li><code>02_data_dictionary/</code> &mdash; field specification for the flat input table, plus a fully synthetic demo dataset and its generator, so the pipeline can be exercised without a MedDRA licence.</li><li><code>04_results/</code> &mdash; consolidated result tables.</li><li><code>05_resource_ledger/</code> &mdash; parameters, memory, peak GPU memory and per-epoch time for 22 configurations.</li><li><code>06_split_verification/</code> &mdash; evidence that every run shares one identical train/validation/test split (verified member-by-member).</li><li><code>07_run_artifacts/</code> &mdash; per-run metrics, training histories, joint-subgroup diagnosis output, baseline results and provenance records. Every number reported in the manuscript traces to these files.</li></ul><p><strong>MedDRA data are NOT included.</strong> MedDRA is distributed by the MSSO under its own licence and must not be redistributed. Academic users must obtain a subscription or MSSO approval; commercial users must purchase a licence. The synthetic demo dataset is provided precisely so that the code path can be verified without a licence.</p><p><strong>Environment used for the reported results:</strong> Ubuntu 22.04, Python 3.12, PyTorch 2.14.0 (see <code>requirements.txt</code>).</p>",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "MIT",
+  "creators": [
+    {
+      "name": "Wang, Zhi",
+      "affiliation": "Tiangong University"
+    }
+  ],
+  "keywords": [
+    "MedDRA",
+    "medical terminology",
+    "term embedding",
+    "multi-parent DAG",
+    "heterogeneous graph neural network",
+    "contrastive learning",
+    "System Organ Class classification",
+    "pharmacovigilance"
+  ],
+  "notes": "Code licence: MIT. Documentation and the synthetic demo dataset: CC BY 4.0. MedDRA data: not included; subject to MSSO licensing. The author list shown here is provisional; the definitive list will appear in the journal article, and this record will be updated in a later version once the article DOI is available.",
+  "communities": [],
+  "grants": []
+}

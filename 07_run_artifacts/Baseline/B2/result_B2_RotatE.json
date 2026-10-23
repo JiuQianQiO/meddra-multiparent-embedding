@@ -1,0 +1,16 @@
+{
+ "name": "B2_RotatE",
+ "timestamp": "2026-10-03T04:34:20",
+ "metrics": {
+  "accuracy": 0.2852,
+  "macro_f1": 0.2101,
+  "weighted_f1": 0.2599,
+  "probe_C": 1.0
+ },
+ "extra": {
+  "dim": 256,
+  "epochs": 100,
+  "triples": 266812,
+  "library": "pykeen"
+ }
+}

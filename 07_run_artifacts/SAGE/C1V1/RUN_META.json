@@ -1,0 +1,22 @@
+{
+  "model_tag": "SAGE",
+  "experiment": "V1",
+  "run_dir": "<RUN_ROOT>/V1",
+  "cache_dir": "<CACHE_DIR>",
+  "script_source": "<RUN_ROOT>/V1/Meddra_full_trainer_SAGE.py",
+  "script_name": "Meddra_full_trainer_SAGE.py",
+  "script_md5": "8399334e1811cd809a695d22a7bf22a0",
+  "cwd": "<RUN_ROOT>/V1",
+  "argv": [
+    "<RUN_ROOT>/V1/Meddra_full_trainer_SAGE.py"
+  ],
+  "started_at": "2026-10-03 08:11:27",
+  "env": {
+    "MEDDRA_RUN_DIR": "<RUN_ROOT>/V1",
+    "MEDDRA_OUTPUT_ROOT": "<RUN_ROOT>",
+    "MEDDRA_EXPERIMENT": "V1",
+    "MEDDRA_CACHE_DIR": "<CACHE_DIR>",
+    "MEDDRA_CSV_PATH": "<DATA_DIR>/MEDDRA_DATA_29_0.csv",
+    "MEDDRA_TEXT_MODEL_DIR": "<MODEL_DIR>/pubmedbert"
+  }
+}

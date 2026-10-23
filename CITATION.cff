@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the JBI article and this repository archive."
+title: "Reproduction package for: Medical Term Embedding for MedDRA Multi-Parent DAG - A Heterogeneous Graph Approach with Multi-Level Contrastive Learning"
+abstract: >-
+  Reproduction code and experimental artefacts for a manuscript submitted to the
+  Journal of Biomedical Informatics (JBI). The method embeds MedDRA terms by combining
+  term-name semantics (PubMedBERT) with the five-level multi-parent hierarchy, using a
+  heterogeneous graph encoder and a multi-level weighted contrastive loss with
+  positive-negative mutual exclusion. MedDRA source data are not redistributed;
+  a synthetic demo dataset is provided for licence-free verification of the code path.
+type: software
+license: MIT
+version: "1.0.0"
+date-released: "2026-10-23"
+authors:
+  - family-names: "Wang"
+    given-names: "Zhi"
+    affiliation: "Tiangong University"
+keywords:
+  - MedDRA
+  - medical terminology
+  - term embedding
+  - multi-parent DAG
+  - heterogeneous graph neural network
+  - contrastive learning
+  - System Organ Class classification
+  - pharmacovigilance
+repository-code: "https://github.com/JiuQianQiO/meddra-multiparent-embedding"
+url: "https://github.com/JiuQianQiO/meddra-multiparent-embedding"
+references:
+  - type: article
+    title: "Medical Term Embedding for MedDRA Multi-Parent DAG: A Heterogeneous Graph Approach with Multi-Level Contrastive Learning"
+    status: submitted
+    journal: "Journal of Biomedical Informatics"
+    authors:
+      - family-names: "Wang"
+        given-names: "Zhi"

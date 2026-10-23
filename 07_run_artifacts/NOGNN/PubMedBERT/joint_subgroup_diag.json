@@ -1,0 +1,219 @@
+{
+ "run_dir": "<RUN_ROOT>/PubMedBert",
+ "checkpoint": "best_checkpoint_noGNN_noGNN_PubMedBERT_MedBERT.pt",
+ "script": "<RUN_ROOT>/PubMedBert/meddra_full_trainer_noGNN.py",
+ "eval_set": "test",
+ "eval_n": 12041,
+ "feature_type": "pubmedbert",
+ "feature_model": "PubMedBERT",
+ "train_seed": 42,
+ "split_seed": 42,
+ "reproduce": {
+  "checks": {
+   "accuracy": {
+    "ref": 0.834482,
+    "now": 0.834482,
+    "ok": true
+   },
+   "macro_f1": {
+    "ref": 0.779344,
+    "now": 0.779344,
+    "ok": true
+   },
+   "diag_parent_in_train_acc": {
+    "ref": 0.833845,
+    "now": 0.833845,
+    "ok": true
+   },
+   "diag_parent_out_train_acc": {
+    "ref": 0.84168,
+    "now": 0.84168,
+    "ok": true
+   },
+   "diag_hlt_gap": {
+    "ref": -7.19,
+    "now": -7.19,
+    "ok": true
+   },
+   "diag_pt_gap": {
+    "ref": -0.18,
+    "now": -0.18,
+    "ok": true
+   },
+   "diag_llt_gap": {
+    "ref": -0.81,
+    "now": -0.81,
+    "ok": true
+   }
+  },
+  "tolerance": 0.0005,
+  "reproduced": true
+ },
+ "overall": {
+  "accuracy": 0.834482,
+  "macro_f1": 0.779344,
+  "n": 12041
+ },
+ "joint_subgroup": {
+  "child_mode": "primary",
+  "parent_cells": {
+   "父∈train": {
+    "n": 10749,
+    "acc": 0.833845
+   },
+   "父∉train": {
+    "n": 1238,
+    "acc": 0.84168
+   },
+   "gap_pp": -0.78
+  },
+  "parent_by_level": {
+   "hlt": {
+    "父∈train": {
+     "n": 128,
+     "acc": 0.828125
+    },
+    "父∉train": {
+     "n": 30,
+     "acc": 0.9
+    },
+    "gap_pp": -7.19
+   },
+   "llt": {
+    "父∈train": {
+     "n": 8386,
+     "acc": 0.833055
+    },
+    "父∉train": {
+     "n": 705,
+     "acc": 0.841135
+    },
+    "gap_pp": -0.81
+   },
+   "pt": {
+    "父∈train": {
+     "n": 2235,
+     "acc": 0.837136
+    },
+    "父∉train": {
+     "n": 503,
+     "acc": 0.838966
+    },
+    "gap_pp": -0.18
+   }
+  },
+  "joint_all_diagnostic_nodes": {
+   "cells": {
+    "父∈子∈": {
+     "n": 4539,
+     "acc": 0.838511
+    },
+    "父∈子∉": {
+     "n": 6210,
+     "acc": 0.830435
+    },
+    "父∉子∈": {
+     "n": 491,
+     "acc": 0.86558
+    },
+    "父∉子∉": {
+     "n": 747,
+     "acc": 0.825971
+    }
+   },
+   "joint_diff_pp": 1.25,
+   "n_nodes": 11987,
+   "note": "完整性展示；其中「子∉」混入了无子节点的节点（LLT 全部落在该列），存在结构性偏向"
+  },
+  "joint_has_child_only": {
+   "cells": {
+    "父∈子∈": {
+     "n": 4539,
+     "acc": 0.838511
+    },
+    "父∈子∉": {
+     "n": 102,
+     "acc": 0.813725
+    },
+    "父∉子∈": {
+     "n": 491,
+     "acc": 0.86558
+    },
+    "父∉子∉": {
+     "n": 510,
+     "acc": 0.827451
+    }
+   },
+   "joint_diff_pp": 1.11,
+   "n_nodes": 5642,
+   "note": "推荐口径：只在有子节点的节点（HLT/PT）间比较，避免 LLT 结构性偏向「子∉」"
+  },
+  "joint_by_level": {
+   "hlt": {
+    "cells": {
+     "父∈子∈": {
+      "n": 116,
+      "acc": 0.818966
+     },
+     "父∈子∉": {
+      "n": 0,
+      "acc": null
+     },
+     "父∉子∈": {
+      "n": 29,
+      "acc": 0.896552
+     },
+     "父∉子∉": {
+      "n": 0,
+      "acc": null
+     }
+    },
+    "joint_diff_pp": null
+   },
+   "llt": {
+    "cells": {
+     "父∈子∈": {
+      "n": 2235,
+      "acc": 0.842058
+     },
+     "父∈子∉": {
+      "n": 55,
+      "acc": 0.745455
+     },
+     "父∉子∈": {
+      "n": 227,
+      "acc": 0.881057
+     },
+     "父∉子∉": {
+      "n": 242,
+      "acc": 0.822314
+     }
+    },
+    "joint_diff_pp": 1.97
+   },
+   "pt": {
+    "cells": {
+     "父∈子∈": {
+      "n": 2188,
+      "acc": 0.835923
+     },
+     "父∈子∉": {
+      "n": 47,
+      "acc": 0.893617
+     },
+     "父∉子∈": {
+      "n": 235,
+      "acc": 0.846809
+     },
+     "父∉子∉": {
+      "n": 268,
+      "acc": 0.83209
+     }
+    },
+    "joint_diff_pp": 0.38
+   }
+  },
+  "n_nodes_without_child": 6345,
+  "warnings": []
+ }
+}

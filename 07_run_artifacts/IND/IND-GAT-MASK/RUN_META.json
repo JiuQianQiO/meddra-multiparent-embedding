@@ -1,0 +1,22 @@
+{
+  "model_tag": "IND-GAT",
+  "experiment": "IND-GAT-MASK",
+  "run_dir": "<RUN_ROOT>/IND-GAT-MASK",
+  "cache_dir": "<CACHE_DIR>",
+  "script_source": "<RUN_ROOT>/IND-GAT-MASK/Meddra_inductive_GAT.py",
+  "script_name": "Meddra_inductive_GAT.py",
+  "script_md5": "881d52c54c83d4fad8cb9c21635a9517",
+  "cwd": "<RUN_ROOT>/IND-GAT-MASK",
+  "argv": [
+    "<RUN_ROOT>/IND-GAT-MASK/Meddra_inductive_GAT.py"
+  ],
+  "started_at": "2026-10-03 08:31:24",
+  "env": {
+    "MEDDRA_RUN_DIR": "<RUN_ROOT>/IND-GAT-MASK",
+    "MEDDRA_OUTPUT_ROOT": "<RUN_ROOT>",
+    "MEDDRA_EXPERIMENT": "IND-GAT-MASK",
+    "MEDDRA_CACHE_DIR": "<CACHE_DIR>",
+    "MEDDRA_CSV_PATH": "<DATA_DIR>/MEDDRA_DATA_29_0.csv",
+    "MEDDRA_TEXT_MODEL_DIR": "<MODEL_DIR>/pubmedbert"
+  }
+}

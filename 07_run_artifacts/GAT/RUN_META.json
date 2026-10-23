@@ -1,0 +1,20 @@
+{
+  "model_tag": "GAT",
+  "experiment": "GAT",
+  "run_dir": "<JBI_ROOT>/GAT",
+  "cache_dir": "<CACHE_DIR>",
+  "script_source": "<JBI_ROOT>/GAT/meddra_full_trainer_GAT.py",
+  "script_name": "meddra_full_trainer_GAT.py",
+  "script_md5": "08ba38a079b6512f477d69abf0408cbc",
+  "cwd": "<JBI_ROOT>/GAT",
+  "argv": [
+    "meddra_full_trainer_GAT.py"
+  ],
+  "started_at": "2026-10-03 08:22:54",
+  "env": {
+    "MEDDRA_OUTPUT_ROOT": "<RUN_ROOT>",
+    "MEDDRA_CACHE_DIR": "<CACHE_DIR>",
+    "MEDDRA_CSV_PATH": "<DATA_DIR>/MEDDRA_DATA_29_0.csv",
+    "MEDDRA_TEXT_MODEL_DIR": "<MODEL_DIR>/pubmedbert"
+  }
+}

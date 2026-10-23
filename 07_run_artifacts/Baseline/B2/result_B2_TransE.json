@@ -1,0 +1,16 @@
+{
+ "name": "B2_TransE",
+ "timestamp": "2026-10-03T04:17:05",
+ "metrics": {
+  "accuracy": 0.21,
+  "macro_f1": 0.0911,
+  "weighted_f1": 0.1538,
+  "probe_C": 4.0
+ },
+ "extra": {
+  "dim": 256,
+  "epochs": 100,
+  "triples": 266812,
+  "library": "pykeen"
+ }
+}

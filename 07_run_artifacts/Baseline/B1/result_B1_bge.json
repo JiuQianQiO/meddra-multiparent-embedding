@@ -1,0 +1,19 @@
+{
+ "name": "B1_bge",
+ "timestamp": "2026-10-03T03:30:08",
+ "metrics": {
+  "accuracy": 0.8684,
+  "macro_f1": 0.8312,
+  "weighted_f1": 0.8679,
+  "probe_C": 4.0
+ },
+ "extra": {
+  "knn": {
+   "accuracy": 0.9372
+  },
+  "hf_model": "BAAI/bge-large-en-v1.5",
+  "pooling": "cls",
+  "max_len": 128,
+  "device": "cuda"
+ }
+}
