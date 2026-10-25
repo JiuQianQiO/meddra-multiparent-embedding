@@ -3,8 +3,8 @@
 Reproduction code and experimental artefacts for the manuscript submitted to the
 *Journal of Biomedical Informatics* (JBI):
 
-> **Medical Term Embedding for MedDRA Multi-Parent DAG: A Heterogeneous Graph Approach with
-> Multi-Level Contrastive Learning**
+> **A Heterogeneous Graph Framework with Multi-Level Contrastive Learning for Primary SOC
+> Classification in the MedDRA Multi-Parent DAG**
 
 The method embeds MedDRA terms by combining term-name semantics (PubMedBERT) with the
 five-level multi-parent hierarchy, using a heterogeneous graph encoder and a multi-level
