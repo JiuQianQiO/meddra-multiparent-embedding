@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this code, please cite the JBI article and this repository archive."
-title: "Reproduction package for: A Heterogeneous Graph Framework with Multi-Level Contrastive Learning for Primary SOC Classification in the MedDRA Multi-Parent DAG"
+title: "Reproduction package for: A Heterogeneous Graph Framework with Multi-Level Contrastive Learning for Primary SOC Classification of MedDRA Terms in a Multi-Parent DAG"
 abstract: >-
   Reproduction code and experimental artefacts for a manuscript submitted to the
   Journal of Biomedical Informatics (JBI). The method embeds MedDRA terms by combining
