@@ -121,4 +121,4 @@ deterministic given `split_seed=42` and the recorded `train_seed`.
 If you use this code, please cite the JBI article and the archived artefact set:
 
 - Code repository: https://github.com/JiuQianQiO/meddra-multiparent-embedding
-- Long-term archive: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23076752.svg)](https://doi.org/10.5281/zenodo.23076752)
+- Long-term archive: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23876752.svg)](https://doi.org/10.5281/zenodo.23876752)

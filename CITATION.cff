@@ -10,7 +10,7 @@ abstract: >-
   a synthetic demo dataset is provided for licence-free verification of the code path.
 type: software
 license: MIT
-doi: 10.5281/zenodo.23076752
+doi: 10.5281/zenodo.23876752
 version: "1.0.0"
 date-released: "2026-11-02"
 authors:
