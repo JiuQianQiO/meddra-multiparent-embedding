@@ -28,7 +28,7 @@
     "System Organ Class classification",
     "pharmacovigilance"
   ],
-  "notes": "Code licence: MIT. Documentation and the synthetic demo dataset: CC BY 4.0. MedDRA data: not included; subject to MSSO licensing. The author list shown here is provisional; the definitive list will appear in the journal article, and this record will be updated in a later version once the article DOI is available.",
+  "notes": "Code licence: MIT. Documentation and the synthetic demo dataset: CC BY 4.0. MedDRA data: not included; subject to MSSO licensing. Archived as DOI 10.5281/zenodo.23076752.",
   "communities": [],
   "grants": []
 }
