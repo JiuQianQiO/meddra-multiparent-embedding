@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this code, please cite the JBI article and this repository archive."
-title: "Reproduction package for: A Heterogeneous Graph Framework with Multi-Level Contrastive Learning for Primary SOC Classification of MedDRA Terms in a Multi-Parent DAG"
+title: "Reproduction package for: A Diagnostic Evaluation of Heterogeneous-Graph Term Embeddings for MedDRA Primary SOC Classification in a Multi-Parent DAG"
 abstract: >-
   Reproduction code and experimental artefacts for a manuscript submitted to the
   Journal of Biomedical Informatics (JBI). The method embeds MedDRA terms by combining
@@ -16,6 +16,12 @@ authors:
   - family-names: "Wang"
     given-names: "Zhi"
     affiliation: "Tiangong University"
+  - family-names: "Xiao"
+    given-names: "Zhitao"
+    affiliation: "Tiangong University"
+  - family-names: "Zhao"
+    given-names: "Yan"
+    affiliation: "Tiangong University"
 keywords:
   - MedDRA
   - medical terminology
@@ -29,9 +35,13 @@ repository-code: "https://github.com/JiuQianQiO/meddra-multiparent-embedding"
 url: "https://github.com/JiuQianQiO/meddra-multiparent-embedding"
 references:
   - type: article
-    title: "Medical Term Embedding for MedDRA Multi-Parent DAG: A Heterogeneous Graph Approach with Multi-Level Contrastive Learning"
+    title: "A Diagnostic Evaluation of Heterogeneous-Graph Term Embeddings for MedDRA Primary SOC Classification in a Multi-Parent DAG"
     status: submitted
     journal: "Journal of Biomedical Informatics"
     authors:
       - family-names: "Wang"
         given-names: "Zhi"
+      - family-names: "Xiao"
+        given-names: "Zhitao"
+      - family-names: "Zhao"
+        given-names: "Yan"

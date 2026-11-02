@@ -1,55 +1,45 @@
 # -*- coding: utf-8 -*-
 """
-JBI submission - offline two-dimensional subgroup diagnosis ("parent x child" cross-tabulation)
+JBI 投稿 · 离线二维子群诊断（「父 × 子」交叉四格）
 
 -------------------------------------------------------------------------------
-What it does
+做什么
 -------------------------------------------------------------------------------
-Table 6 of the paper needs the "joint difference", i.e. the accuracy difference between the
-"parent in AND child in" cell and the "parent out AND child out" cell, which rules out the
-parent-chain and child-chain label-propagation channels simultaneously. The training script
-currently provides only a one-dimensional diagnosis (`_parent_supervised`), and the artefacts
-store only **aggregated values** (diag_* fields of `test_metrics_*.json`) without per-node
-correctness, so the quantity cannot be recovered from the artefacts afterwards.
+论文表 6 需要「二维联合差」＝「父∈且子∈」格与「父∉且子∉」格的准确率之差，用以同时排除
+父链与子链两条标签传播通道。训练脚本目前只有一维诊断（`_parent_supervised`），而产物里只落
+了**聚合值**（`test_metrics_*.json` 的 diag_*），没有逐节点对错，故无法事后从产物推得。
 
-This script fills the gap **without retraining**: the checkpoint (best_checkpoint_*.pt) already
-stores
+本脚本在**不重训**的前提下补齐：断点（best_checkpoint_*.pt）内已保存
     model_state_dict / model_config / contrastive_config / training_config
     / node_types / edge_types / num_socs / level_nodes / embedding_dim / hidden_dim
     / cache_version / build_hierarchy_version / test_metrics
-which is sufficient to rebuild the model offline; together with the shared graph cache and
-feature cache, a **single forward pass** determines for each node whether its prediction is
-correct.
+足以离线重建模型；配上共享的图缓存与特征缓存后做**一次前向**，即可逐节点判断是否预测正确。
 
 -------------------------------------------------------------------------------
-Four-fold self-check (each failure is flagged prominently rather than silently yielding wrong numbers)
+四重自校验（任一失败都会显著标记，而不是静默给出错数）
 -------------------------------------------------------------------------------
-1) Reproduction check: given the same weights, the same data, and a deterministic eval/no_grad
-   forward pass, the test-set Acc / Macro-F1 / parent-chain gap computed here must match the
-   test_metrics recorded in the checkpoint. A mismatch sets reproduced=False and the results
-   **must not be used in the paper** (it usually indicates that the feature or graph cache
-   differs from the one used at training time).
-2) Split check: HeteroMedDRATrainer is instantiated directly, so the split logic is identical,
-   character for character, to that used at training time, and reuses its built-in
-   "unified split index, per-member check" (MEDDRA_SPLIT_INDEX_FILE).
-3) Configuration reconciliation: ModelConfig / ContrastiveConfig / training_config are all taken
-   from the checkpoint itself; a warning is raised if num_socs disagrees with the current graph.
-4) Sample-size disclosure: N is reported for every cell, and cells with too few samples are
-   flagged (small cells cannot serve as evidence).
+1) 复现校验：同一份权重 + 同一份数据 + eval/no_grad 前向具有确定性，因此本次算出的
+   测试集 Acc / Macro-F1 / 父链 gap 必须与断点内记录的 test_metrics 一致；
+   不一致 → 标记 reproduced=False，**不得写入论文**（通常说明特征/图缓存与训练时不同）。
+2) 划分校验：直接实例化 HeteroMedDRATrainer，划分逻辑与训练时逐字相同，并沿用其自带的
+   「统一划分索引逐成员校验」（MEDDRA_SPLIT_INDEX_FILE）。
+3) 配置对账：ModelConfig / ContrastiveConfig / training_config 全部取自断点本身；
+   num_socs 与当前图不一致时报警。
+4) 样本量披露：每一格都输出 N，样本过小的格子会给出提示（小样本格不能作为证据）。
 
 -------------------------------------------------------------------------------
-Usage (Windows PowerShell)
+用法（Windows PowerShell）
 -------------------------------------------------------------------------------
 $env:MEDDRA_CSV_PATH  = 'E:/.../MEDDRA_DATA_29_0.csv'
-$env:MEDDRA_CACHE_DIR = 'E:/MedDRA_model_files/cache_shared'
-$env:MEDDRA_TEXT_MODEL_DIR = 'E:/hf_models/pubmedbert'   # optional
+$env:MEDDRA_CACHE_DIR = 'D:/MedDRA模型文件/cache_shared'
+$env:MEDDRA_TEXT_MODEL_DIR = 'E:/hf_models/pubmedbert'   # 可选
 
 python Embedding/code/JBI/diagnose_joint_subgroup.py `
-    --run-dirs 'E:/MedDRA_model_files/JBI/SAGE/C1V1' 'E:/MedDRA_model_files/JBI/SAGE/C7' `
-               'E:/MedDRA_model_files/JBI/GAT' 'E:/MedDRA_model_files/JBI/NOGNN/PubMedBERT' `
-    --split-index 'E:/MedDRA_model_files/JBI/split_indices.json'
+    --run-dirs 'D:/MedDRA模型文件/JBI/SAGE/C1V1' 'D:/MedDRA模型文件/JBI/SAGE/C7' `
+               'D:/MedDRA模型文件/JBI/GAT' 'D:/MedDRA模型文件/JBI/NOGNN/PubMedBERT' `
+    --split-index 'D:/MedDRA模型文件/JBI/split_indices.json'
 
-Output: joint_subgroup_diag.json in each run directory; the key cells are also printed to the console.
+输出：每个运行目录下的 joint_subgroup_diag.json，控制台同步打印关键四格。
 """
 from __future__ import annotations
 
@@ -59,7 +49,7 @@ import json
 import os
 import sys
 
-#  Script copies stored alongside the artefacts in the artefact directory; used by priority (character-for-character identical to that training run)
+# 产物目录里随产物落盘的脚本副本，按其优先级取用（与该次训练逐字一致）
 _PREFERRED = (
     "Meddra_full_trainer_SAGE.py",
     "meddra_full_trainer_GAT.py",
@@ -73,7 +63,7 @@ _PREFERRED = (
 
 
 # ---------------------------------------------------------------------------
-#  basic utilities
+# 基础工具
 # ---------------------------------------------------------------------------
 def _log(msg: str) -> None:
     print(msg, flush=True)
@@ -120,7 +110,7 @@ def setattr_known(obj, mapping: dict) -> list:
 
 
 # ---------------------------------------------------------------------------
-#  data and model reconstruction
+# 数据与模型重建
 # ---------------------------------------------------------------------------
 class Context(object):
     """按 (脚本, 特征类型, 训练种子, 嵌入维度) 复用已建好的图与特征，避免重复构建。"""
@@ -145,7 +135,7 @@ def build_data(mod, args, feature_type: str, feature_model: str,
     text_dir = args.text_model_dir or os.environ.get("MEDDRA_TEXT_MODEL_DIR") or dc.text_model_dir
 
     if not os.path.exists(str(csv or "")):
-        try:  #  auto-location identical to the main script
+        try:  # 与主脚本同款的自动定位
             found = mod._find_meddra_csv((os.getcwd(), os.path.dirname(str(mod.__file__))))
             if found:
                 _log(f"    ⚠️ 配置的 CSV 不存在 → 自动定位到: {found}")
@@ -158,8 +148,8 @@ def build_data(mod, args, feature_type: str, feature_model: str,
     dc.meddra_csv_path = csv
     dc.cache_dir = cache_dir
     dc.text_model_dir = text_dir
-    #  feature_type is overridden only when the features are explicitly identified as "random features"; otherwise the script's own default is kept
-    #  (SAGE/GAT default to 'pubmedbert', noGNN defaults to 'MedBERT'), so that noGNN's default convention is not broken.
+    # feature_type 只在明确判定为「随机特征」时才覆盖；否则沿用该脚本自身的默认
+    # （SAGE/GAT 默认 'pubmedbert'，noGNN 默认 'MedBERT'），避免把 noGNN 的默认口径改坏。
     if feature_type == "random" and hasattr(dc, "feature_type"):
         dc.feature_type = "random"
     _ft = str(getattr(dc, "feature_type", feature_type) or feature_type)
@@ -174,12 +164,12 @@ def build_data(mod, args, feature_type: str, feature_model: str,
     if graph_data is None:
         raise RuntimeError("图加载失败")
 
-    #  [random features V3/V4] during training the random features are generated by torch.randn after _set_seed(train_seed)
-    #  (via the global RNG), so the same seed must be set here before generation; otherwise these are not the random features used at training time.
+    # 【随机特征 V3/V4】训练时随机特征是在 _set_seed(train_seed) 之后由 torch.randn 生成的
+    # （走全局 RNG），因此这里必须在生成前用同一个种子播种，否则得到的不是训练时那份随机特征。
     if feature_type == "random":
         mod._set_seed(int(train_seed))
 
-    #  assemble according to the actual signature of that script (noGNN additionally accepts feature_model; SAGE/GAT do not, so it must not be passed blindly)
+    # 按该脚本实际的形参组装（noGNN 额外接受 feature_model；SAGE/GAT 不接受，不能硬塞）
     fkw = {"processor": processor, "cache_manager": cache_manager,
            "embedding_dim": embedding_dim, "force_rebuild": False,
            "verbose": args.verbose, "model_local_dir": dc.text_model_dir}
@@ -222,7 +212,7 @@ def build_model(mod, ck, graph_data, processor, feature_dim, device):
         _log(f"    ⚠️ 断点缺少 model_config 字段 {missing}，将使用脚本默认值")
     if "num_layers" not in mc_src and hasattr(mc, "num_layers"):
         _log("    提示：断点未记录 num_layers，使用脚本默认值（noGNN 等无该字段的模型属正常）")
-    mc.in_channels = int(feature_dim)     #  consistent with training: use the actual feature dimension
+    mc.in_channels = int(feature_dim)     # 与训练时一致：以实际特征维度为准
 
     num_socs_ck = ck.get("num_socs")
     num_socs = len(processor.level_nodes.get("SOC", []))
@@ -233,7 +223,7 @@ def build_model(mod, ck, graph_data, processor, feature_dim, device):
     if ck_nt and ck_nt != [str(t) for t in graph_data.node_types]:
         _log(f"    ⚠️ 断点 node_types={ck_nt} 与当前图 {list(graph_data.node_types)} 不一致")
 
-    #  ---- assemble constructor arguments by the actual signature (SAGE/GAT need edge_types, noGNN does not) ----
+    # ---- 按实际签名组装构造参数（SAGE/GAT 需要 edge_types，noGNN 不需要）----
     sig = inspect.signature(mod.HeteroMedDRAEncoder.__init__)
     params = [p for p in sig.parameters if p != "self"]
     candidates = {
@@ -262,8 +252,55 @@ def build_model(mod, ck, graph_data, processor, feature_dim, device):
 
 
 # ---------------------------------------------------------------------------
-#  forward pass: obtain per-node correctness
+# 前向：得到逐节点对错
 # ---------------------------------------------------------------------------
+def export_predictions(run_dir, args, mod, trainer, records, preds, truths, reproduced):
+    """把逐节点预测导出为 test_predictions_<TAG>.json（字段口径与新版训练器 save_test_predictions 一致）。
+
+    用途：2026-10-23 之前跑的基准目录（如 seed 42 的 SAGE/C1V1）没有逐节点预测文件，
+    多轴子群分析（multiaxial_summary.py / subgroup_performance.py）因此缺少 seed 42 观察。
+    只有复现校验通过时才写正式文件名；未通过时文件名加 UNVERIFIED_ 前缀（下游脚本不会读取）。
+    """
+    if args.eval_set != "test":
+        _log("    ⚠️ --export-predictions 只在 --eval-set test 下导出，已跳过")
+        return None
+    tag = str(getattr(mod, "_MODEL_TAG", "model"))
+    soc_list = [int(s) for s in (getattr(trainer, "soc_list", []) or [])]
+    rows = []
+    for (code, ntype, ok), p, t in zip(records, preds, truths):
+        rows.append({
+            "node_code": int(code),
+            "level": str(ntype),
+            "true_soc_code": soc_list[int(t)] if int(t) < len(soc_list) else int(t),
+            "pred_soc_code": soc_list[int(p)] if int(p) < len(soc_list) else int(p),
+            "correct": bool(ok),
+        })
+    run_name = os.path.basename(os.path.normpath(run_dir))
+    if args.out_dir:
+        dst_dir = args.out_dir
+        fname = "test_predictions_%s__%s.json" % (tag, run_name)
+    else:
+        dst_dir = run_dir
+        fname = "test_predictions_%s.json" % tag
+        existing = sorted(glob.glob(os.path.join(run_dir, "test_predictions_*.json")))
+        if existing and not args.overwrite_predictions:
+            _log(f"    ℹ️ {run_dir} 已有训练器导出的预测文件 {os.path.basename(existing[0])}，不覆盖"
+                 "（如需覆盖加 --overwrite-predictions）")
+            return existing[0]
+    if not reproduced:
+        fname = "UNVERIFIED_" + fname
+        _log("    ⚠️ 复现校验未通过：预测文件加 UNVERIFIED_ 前缀，下游脚本不会读取，请先排查")
+    os.makedirs(dst_dir, exist_ok=True)
+    path = os.path.join(dst_dir, fname)
+    if os.path.exists(path) and not args.overwrite_predictions:
+        _log(f"    ℹ️ 预测文件已存在，不覆盖: {path}")
+        return path
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(rows, f, ensure_ascii=False, indent=1)
+    _log(f"    📄 已导出逐节点预测 {len(rows):,} 条: {path}")
+    return path
+
+
 def forward_records(model, trainer, eval_indices, device):
     """返回 [(node_code, ntype, correct), ...] 以及整体预测/真值列表。口径与 evaluate() 一致。"""
     import torch
@@ -274,7 +311,7 @@ def forward_records(model, trainer, eval_indices, device):
     edge_dict = {et: trainer.data[et].edge_index for et in edge_types
                  if hasattr(trainer.data[et], "edge_index")}
     with torch.no_grad():
-        #  the forward signature of noGNN is (x_dict, edge_index_dict=None), so passing one extra argument has no side effect
+        # noGNN 的 forward 签名为 (x_dict, edge_index_dict=None)，多传一个参数无副作用
         out = model(x_dict, edge_dict)
     soc_logits = out[1] if isinstance(out, (tuple, list)) else out
 
@@ -323,7 +360,7 @@ def build_children(processor, mode: str):
 
 
 # ---------------------------------------------------------------------------
-#  two-by-two cell statistics
+# 四格统计
 # ---------------------------------------------------------------------------
 def _cell(cnt: dict, cor: dict, key):
     n = cnt.get(key, 0)
@@ -359,7 +396,7 @@ def analyze(records, trainer, processor, child_mode, min_cell):
     kids = build_children(processor, child_mode)
     train_set = trainer._get_train_code_set()
 
-    #  ---- one-dimensional (for item-by-item reconciliation with the diagnosis already in the training script) ----
+    # ---- 一维（与训练脚本既有诊断逐一对账用）----
     p_cnt = {"in": 0, "out": 0}
     p_cor = {"in": 0, "out": 0}
     lv_stat = {}
@@ -374,7 +411,7 @@ def analyze(records, trainer, processor, child_mode, min_cell):
         st["cnt"][k] += 1
         st["cor"][k] += int(ok)
 
-    #  ---- two-dimensional four cells ----
+    # ---- 二维四格 ----
     cnt_all, cor_all = {}, {}
     cnt_hc, cor_hc = {}, {}
     lv_joint = {}
@@ -437,7 +474,7 @@ def analyze(records, trainer, processor, child_mode, min_cell):
 
 
 # ---------------------------------------------------------------------------
-#  single run directory
+# 单个运行目录
 # ---------------------------------------------------------------------------
 def process_one(run_dir, mod_cache, args, ctx, device):
     import torch
@@ -454,7 +491,7 @@ def process_one(run_dir, mod_cache, args, ctx, device):
     if key_script not in mod_cache:
         mod_cache[key_script] = load_module(key_script, "jbi_mod_%d" % len(mod_cache))
     mod = mod_cache[key_script]
-    mod.DEVICE = device            #  Trainer.__init__ moves data using a module-level DEVICE, which must be aligned
+    mod.DEVICE = device            # Trainer.__init__ 内部用模块级 DEVICE 搬运数据，必须对齐
 
     tc = ck.get("training_config") or {}
     mc = ck.get("model_config") or {}
@@ -468,8 +505,8 @@ def process_one(run_dir, mod_cache, args, ctx, device):
     else:
         feature_type = args.feature_type
 
-    #  ---- text encoder (feature_model) ----
-    #  checkpoint first (the field exists in noGNN's ModelConfig); then --feature-model; finally infer from the directory / checkpoint name.
+    # ---- 文本编码器（feature_model）----
+    # 断点优先（noGNN 的 ModelConfig 里有该字段）；其次 --feature-model；最后按目录/断点名推断。
     feature_model = ""
     if mc.get("feature_model"):
         feature_model = str(mc["feature_model"])
@@ -499,13 +536,13 @@ def process_one(run_dir, mod_cache, args, ctx, device):
 
     model = build_model(mod, ck, graph_data, processor, feature_dim, device)
 
-    #  the training / contrastive configuration is taken entirely from the checkpoint, ensuring the split uses the same parameters as during training
+    # 训练/对比配置全部取自断点，保证划分与训练时同参
     training_config = mod.TrainingConfig()
     wrote_t = setattr_known(training_config, tc)
     if "test_ratio" not in wrote_t:
         _log(f"    ⚠️ TrainingConfig 未接受 test_ratio 字段（已接受: {sorted(wrote_t)}）")
 
-    #  the noGNN script has no contrastive learning and therefore no ContrastiveConfig; adapt to whether it exists
+    # noGNN 脚本里没有对比学习，也就没有 ContrastiveConfig；按存在与否自适应
     contrastive_config = None
     if hasattr(mod, "ContrastiveConfig"):
         contrastive_config = mod.ContrastiveConfig()
@@ -518,9 +555,9 @@ def process_one(run_dir, mod_cache, args, ctx, device):
     tsig = inspect.signature(mod.HeteroMedDRATrainer.__init__)
     tparams = [p for p in tsig.parameters if p != "self"]
 
-    #  [explicitly block inductive scripts] the inductive setting uses the "entire HLT subtree hold-out" protocol: there is no three-way test set,
-    #  and before holding out, select_inductive_holdout must run and edges are masked under the MASK protocol (which modifies the graph in place).
-    #  its cells do not share their source with the transductive setting and cannot be mixed with Table 6, so this script does not support it and emits an actionable message.
+    # 【明确拦截归纳式脚本】归纳式用的是「整棵 HLT 子树留出」协议：没有三分测试集、
+    # 留出前还需先 select_inductive_holdout 并在 MASK 协议下掩蔽边（会就地改图）。
+    # 它的四格与转导式不同源，不能与表 6 混用，故本脚本不支持，直接给出可操作的提示。
     if "inductive_holdout" in tparams:
         raise RuntimeError(
             "该运行目录是归纳式脚本（留出整棵 HLT 子树），本诊断脚本不支持：\n"
@@ -592,6 +629,9 @@ def process_one(run_dir, mod_cache, args, ctx, device):
     for k, v in checks.items():
         _log(f"       {k:<22} 断点={v['ref']}  本次={v['now']}  {'✓' if v['ok'] else '✗'}")
 
+    if getattr(args, "export_predictions", False):
+        export_predictions(run_dir, args, mod, trainer, records, preds, truths, reproduced)
+
     out = {
         "run_dir": run_dir,
         "checkpoint": os.path.basename(ck_path),
@@ -613,7 +653,7 @@ def process_one(run_dir, mod_cache, args, ctx, device):
 
     dst = args.out_dir or run_dir
     os.makedirs(dst, exist_ok=True)
-    #  when a unified out-dir is specified, the file name includes the run directory name so that multiple models do not overwrite each other
+    # 指定了统一 out-dir 时，文件名带上运行目录名，避免多个模型互相覆盖
     _fname = ("joint_subgroup_diag.json" if not args.out_dir
               else "joint_subgroup_diag_%s.json" % os.path.basename(os.path.normpath(run_dir)))
     out_path = os.path.join(dst, _fname)
@@ -638,7 +678,7 @@ def process_one(run_dir, mod_cache, args, ctx, device):
 
 
 # ---------------------------------------------------------------------------
-#  entry point
+# 入口
 # ---------------------------------------------------------------------------
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(
@@ -664,6 +704,10 @@ def main(argv=None) -> int:
                     help="复现校验容差（默认 5e-4，约合 12,041 节点中的 6 个）")
     ap.add_argument("--min-cell", type=int, default=30, help="样本量提示阈值")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--export-predictions", action="store_true",
+                    help="同时导出逐节点预测 test_predictions_<TAG>.json（2026-10-29 新增；用于补齐旧基准目录）")
+    ap.add_argument("--overwrite-predictions", action="store_true",
+                    help="与 --export-predictions 合用：覆盖已存在的预测文件")
     args = ap.parse_args(argv)
 
     if args.split_index:

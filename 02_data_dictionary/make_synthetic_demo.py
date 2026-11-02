@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Generate a fully synthetic miniature MedDRA-style dataset (for pipeline validation; contains no real MedDRA content).
+生成完全合成的微型 MedDRA 风格数据集（用于流程校验，不含任何真实 MedDRA 内容）。
 
-Purpose: allow readers without a MedDRA subscription to run the graph construction / training / evaluation pipeline and verify the implementation.
-See `MedDRA_data_dictionary.md` in the same directory for fields and semantics.
+用途：让没有 MedDRA 订阅的读者也能跑通本文的图构建 / 训练 / 评估流程，验证实现是否正确。
+字段与语义见同目录 `MedDRA数据字段说明.md`。
 
-Output: a flat table with one row per LLT x path to SOC; multi-parent PTs are deliberately included.
+输出：一张扁平表，每行 = 一个 LLT × 一条到 SOC 的路径；其中刻意包含多父 PT。
 
-Usage:
+用法：
     python make_synthetic_demo.py [--out synthetic_meddra_demo.csv]
 """
 from __future__ import annotations
@@ -17,9 +17,9 @@ import csv
 
 
 def build_rows():
-    """Build a small five-level hierarchy:
-    2 SOCs -> 2 HLGTs each -> 2 HLTs each -> 2 PTs each -> 2 LLTs each,
-    and additionally attach 2 PTs to a second HLT (forming a multi-parent DAG).
+    """构造一个小型五级层级：
+    2 个 SOC → 每个 2 个 HLGT → 每个 2 个 HLT → 每个 2 个 PT → 每个 2 个 LLT，
+    并额外让 2 个 PT 挂到第二个 HLT 上（形成多父 DAG）。
     """
     rows = []
     code = {"SOC": 10000000, "HLGT": 20000000, "HLT": 30000000, "PT": 40000000, "LLT": 50000000}
@@ -28,7 +28,7 @@ def build_rows():
         code[level] += 1
         return code[level]
 
-    # ---- hierarchy skeleton ----
+    # ---- 层级骨架 ----
     socs, hlgts, hlts, pts = [], [], [], []
     for i in range(2):
         s = new_code("SOC")
@@ -56,7 +56,7 @@ def build_rows():
                 return h, g, s
         raise KeyError(p_code)
 
-    # ---- add one extra path to each of the first two PTs (multi-parent) ----
+    # ---- 给前两个 PT 各增加一条额外路径（多父）----
     extra_parent = {}
     hlt_codes = [h for h, _n, _g, _s in hlts]
     for p_code, _n, _h, _g, _s in list(pts)[:2]:
@@ -71,7 +71,7 @@ def build_rows():
                 return g, s
         raise KeyError(h)
 
-    # ---- generate one row per LLT ----
+    # ---- 逐 LLT 生成行 ----
     for p, p_name, h, g, s in pts:
         primary_soc = s
         for i in range(2):
@@ -86,7 +86,7 @@ def build_rows():
                 LLT_CODE=l, LLT_NAME_EN=l_name,
                 PT_SOC_CODE=primary_soc, PRIMARY_SOC_FG="Y",
             ))
-        # multi-parent PT: add one more row for the same LLTs (secondary path, PRIMARY_SOC_FG='N')
+        # 多父 PT：为同一批 LLT 再补一行（次路径，PRIMARY_SOC_FG='N'）
         if p in extra_parent:
             alt_h = extra_parent[p]
             alt_g, alt_s = hlt_path(alt_h)
@@ -107,7 +107,7 @@ def build_rows():
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Generate a synthetic miniature MedDRA-style demo dataset")
+    ap = argparse.ArgumentParser(description="生成合成的微型 MedDRA 风格示例数据")
     ap.add_argument("--out", default="synthetic_meddra_demo.csv")
     args = ap.parse_args(argv)
 
@@ -121,9 +121,9 @@ def main(argv=None) -> int:
     n_pt = len({r["PT_CODE"] for r in rows})
     multi = [p for p in {r["PT_CODE"] for r in rows}
              if len({r["HLT_CODE"] for r in rows if r["PT_CODE"] == p}) > 1]
-    print(f"Written: {args.out}")
-    print(f"  rows={len(rows)}  SOC={n_soc}  PT={n_pt}  multi-parent PT={len(multi)} -> {multi}")
-    print("  fields:", ", ".join(fields))
+    print(f"已写出: {args.out}")
+    print(f"  行数={len(rows)}  SOC={n_soc}  PT={n_pt}  多父 PT={len(multi)} → {multi}")
+    print("  字段:", ", ".join(fields))
     return 0
 
 

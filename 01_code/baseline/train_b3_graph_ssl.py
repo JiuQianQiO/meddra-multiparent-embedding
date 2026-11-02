@@ -1,24 +1,18 @@
 # -*- coding: utf-8 -*-
-"""B3: graph self-supervised baseline: DGI / GraphMAE (PyG; the heterogeneous graph is folded into a homogeneous one).
+"""B3 图自监督基线：DGI / GraphMAE（PyG；异构图折叠为同构图实现）。
 
-Question answered: "without the multi-level contrastive loss proposed here, how far can generic
-graph self-supervision go?"
+回答的问题："不用本文的多层级对比损失，通用图自监督能到多少？"
 
-Usage (paths and hyperparameters are set centrally in config.py; all command-line arguments are **optional**):
-    python meddra/baseline/train_b3_graph_ssl.py                       # uses B3_METHOD from config.py
-    python meddra/baseline/train_b3_graph_ssl.py --method graphmae      # specify only to switch methods temporarily
+用法（路径与超参统一在 config.py 中设置，命令行参数**全部可选**）：
+    python meddra/baseline/train_b3_graph_ssl.py                       # 用 config.py 的 B3_METHOD
+    python meddra/baseline/train_b3_graph_ssl.py --method graphmae      # 需要临时切换方法时才指定
 
-Notes:
-  - Folding: the five node types are concatenated in (soc, hlgt, hlt, pt, llt) order into a
-    homogeneous graph, and the four parent-child edge types (including reverse edges) are
-    unioned; node features are the same 768-dimensional PubMedBERT features as in the main
-    experiment.
-  - Folding discards the "edge type" information; both DGI and GraphMAE are originally designed
-    for homogeneous graphs -- this adaptation is stated explicitly in the paper.
-  - Training is full-batch (consistent with the training dynamics of the main experiment); after
-    training the embeddings are frozen and evaluated with the same linear probe as in B1.
-  - GraphMAE is a compact implementation (feature mask 0.5 + scaled cosine error SCE, gamma=2,
-    following the core mechanism of the original paper).
+说明：
+  - 折叠：五类节点按 (soc,hlgt,hlt,pt,llt) 顺序拼接为同构图，四类父子边（含反向）取并集；
+    节点特征用与主实验完全相同的 768 维 PubMedBERT 特征。
+  - 折叠会丢失"边类型"信息，DGI/GraphMAE 原始实现均为同构设计——此适配在论文中如实说明。
+  - 训练为全批次（与主实验训练动态一致）；完成后冻结嵌入，用与 B1 相同的线性探针评估。
+  - GraphMAE 为紧凑实现（特征掩码 0.5 + 缩放余弦误差 SCE，γ=2，遵循原论文核心机制）。
 """
 
 # --------------------------------------------------------------------
@@ -62,7 +56,7 @@ REPO = os.path.dirname(os.path.dirname(BASE_DIR))
 
 # ==================== 配置区：单文件独立运行时，直接修改这里即可 ====================
 # 覆盖优先级：BaselineConfig(...) 传参 > 环境变量 > 同目录 config.py（可选） > 下列默认值
-DEFAULT_CSV_PATH = r"/path/to/MEDDRA_DATA_29_0.csv"   # MedDRA 官方层级 CSV
+DEFAULT_CSV_PATH = r"C:\Users\Administrator\Desktop\Paper\MEDDRA_DATA_29_0.csv"   # MedDRA 官方层级 CSV
 DEFAULT_CACHE_DIR = os.path.join(BASE_DIR, "meddra_cache")      # 图 / 特征缓存目录
 DEFAULT_OUT_DIR = os.path.join(BASE_DIR, "baseline_outputs")    # 结果输出目录（自动创建）
 DEFAULT_SEED = 42
@@ -226,7 +220,7 @@ class GraphCacheManager:
     缓存目录结构:
         cache_dir/
             cache_info.json                      # 索引文件
-            {cache_key}_graph.pt                 #  graph data
+            {cache_key}_graph.pt                 # 图数据
             {cache_key}_metadata.pkl             # 元数据
             {cache_key}_pubmedbert.pt            # PubMedBERT 特征
     
@@ -265,15 +259,15 @@ class GraphCacheManager:
         """将缓存索引保存到磁盘。"""
         info_path = os.path.join(self.cache_dir, "cache_info.json")
         try:
-            #  [concurrency-safe] write a temporary file first and then replace atomically: writing directly would truncate files when several processes share the same cache_dir
-            #  (the only consequence would be rebuilding the graph once more, but avoid it if possible; the file name carries the PID so that two processes do not clobber each other's temporary file)
+            # 【并发安全】先写临时文件再原子替换：多个进程共享同一 cache_dir 时直接写会互相截断
+            # （后果只是"多重建一次图"，但能避免就避免；文件名带 PID 防两个进程互相踩临时文件）
             _tmp_info = f"{info_path}.tmp{os.getpid()}"
             with open(_tmp_info, "w", encoding="utf-8") as f:
                 json.dump(self.cache_info, f, indent=2, ensure_ascii=False)
             try:
                 os.replace(_tmp_info, info_path)
             finally:
-                #  If the replacement fails (on Windows it fails when another process holds the target open; POSIX does not), leave no garbage behind
+                # 替换失败（Windows 下别的进程正打开目标文件时会失败；POSIX 不会）时不留下垃圾
                 if os.path.exists(_tmp_info):
                     try:
                         os.remove(_tmp_info)
@@ -305,9 +299,9 @@ class GraphCacheManager:
     # 缓存键中的版本 = 层级/标签构建版本（单一来源，见模块顶部 BUILD_HIERARCHY_VERSION）
     CACHE_VERSION = BUILD_HIERARCHY_VERSION
 
-    #  [feature-cache source tag] participates in the feature cache file name (default 'pubmedbert', identical to the existing cache name, so no recomputation is triggered).
-    #  Assigned by run_full_training from data_config.feature_type: when a new encoder (e.g. sapbert) is added later,
-    #  different feature_type values land in different cache files, avoiding "silently reusing wrong semantic features".
+    # 【特征缓存来源标签】参与特征缓存文件名（默认 'pubmedbert' → 与既有缓存名完全一致，不触发重算）。
+    # 由 run_full_training 按 data_config.feature_type 赋值：将来新增编码器（如 sapbert）时，
+    # 不同的 feature_type 会自动落到不同缓存文件，避免"静默复用错的语义特征"。
     FEATURE_TAG: str = "pubmedbert"
     def get_cache_key(self, csv_path: str, embedding_dim: int = 256) -> Optional[str]:
         """
@@ -343,10 +337,10 @@ class GraphCacheManager:
         meta_path = os.path.join(self.cache_dir, f"{key}_metadata.pkl")
         if not (os.path.exists(graph_path) and os.path.exists(meta_path)):
             return False
-        #  ---- [version difference detection] ----
-        #  The version number in the file name can only "isolate": it cannot detect "changed the hierarchy/label logic but forgot to bump the number".
-        #  Here the version recorded in the cache metadata is read and compared; a mismatch marks the cache invalid (returns False),
-        #  and the caller takes the rebuild path, avoiding silent reuse of old labels / old primary-parent conventions.
+        # ---- 【版本差异检测】----
+        # 文件名里的版本号只能「隔离」，无法发现「改了层级/标签逻辑却忘记升号」。
+        # 这里读取缓存元数据中记录的版本并比较：不一致即判定缓存失效（返回 False），
+        # 由调用方走重建路径，避免静默复用旧标签／旧主父口径。
         try:
             with open(meta_path, "rb") as f:
                 cached_meta = pickle.load(f)
@@ -456,7 +450,7 @@ class GraphCacheManager:
                     serializable_history[k] = v
         # ====================================
 
-        #  [one folder per experiment] if out_dir is non-empty, write to this experiment's directory; if empty, fall back to the cache directory (backward compatible)
+        # 【每实验一个文件夹】out_dir 非空 → 写到本实验目录；为空则退回缓存目录（兼容旧行为）
         target_dir = out_dir or self.cache_dir
         if not os.path.exists(target_dir):
             os.makedirs(target_dir, exist_ok=True)
@@ -501,12 +495,12 @@ class GraphCacheManager:
 
         try:
             # 添加 weights_only=False 以兼容 PyTorch 2.6+
-            #  graph data
+            # 图数据
             data = torch.load(graph_path, map_location="cpu", weights_only=False)
             # metadata
             with open(meta_path, "rb") as f:
                 metadata = pickle.load(f)
-            #  [version difference detection] defensive second check (prevents calling this function directly and bypassing has_cache)
+            # 【版本差异检测】防御性二次校验（防止绕过 has_cache 直接调用本函数）
             cached_ver = metadata.get("build_hierarchy_version") if isinstance(metadata, dict) else None
             if cached_ver != BUILD_HIERARCHY_VERSION:
                 logger.warning(
@@ -588,7 +582,7 @@ class GraphCacheManager:
             logger.error(f"加载 PubMedBERT 特征失败: {e}")
             return None
 
-    #  [reserved / not wired] cache-list query interface: not called by any of the three current training flows (reserved for future incremental training).
+    # 【预留·未接线】缓存列表查询接口：当前三个训练流程均未调用（仅为后续增量训练预留）。
     def list_cache(self) -> None:
         """打印所有缓存条目信息。"""
         if not self.cache_info:
@@ -672,9 +666,9 @@ class HeteroMedDRADataProcessor:
         self.graph_data: Optional[HeteroData] = None
         self.build_time: Optional[str] = None
         
-        #  query cache (speeds up parent-child lookups)
-        self._parents_all: Dict[int, List[int]] = {}       #  full parent list (used for the primary/secondary-parent split in contrastive learning)
-        self._primary_parent: Dict[int, int] = {}          #  [new] primary parent (determined from the primary row)
+        # 查询缓存（加速父子查询）
+        self._parents_all: Dict[int, List[int]] = {}       # 全部父节点列表（对比学习的主父/辅父分层用）
+        self._primary_parent: Dict[int, int] = {}          # 【新增】主父（通过 primary 行确定）
 
 
     # --------------------- 主流程 ---------------------
@@ -742,8 +736,8 @@ class HeteroMedDRADataProcessor:
             "node_names": self.node_names,
             "node_indices": self.node_indices,
             "edge_types": self.edge_types,
-            "primary_parent": self._primary_parent,        #  [new] primary-parent mapping
-            "build_hierarchy_version": BUILD_HIERARCHY_VERSION,  #  [version difference detection] single source of the version number
+            "primary_parent": self._primary_parent,        # 【新增】主父映射
+            "build_hierarchy_version": BUILD_HIERARCHY_VERSION,  # 【版本差异检测】单一来源版本号
             "build_time": time.strftime("%Y-%m-%d %H:%M:%S"),
             "build_duration": time.time() - start_time,
         }
@@ -771,12 +765,12 @@ class HeteroMedDRADataProcessor:
         """
         logger.info("构建 MedDRA 层级结构（DAG）...")
 
-        #  1. Create a LabelEncoder for each level
+        # 1. 为每个层级创建 LabelEncoder
         for level in self.level_names:
             col = f"{level}_CODE"
             if col in self.df.columns:
                 codes = self.df[col].dropna().astype(int).unique().tolist()
-                codes = sorted(codes)  #  Align with the order of the LabelEncoder
+                codes = sorted(codes)  # 与 LabelEncoder 的顺序对齐
                 enc = LabelEncoder()
                 enc.fit(codes)
                 self.level_encoders[level] = enc
@@ -784,7 +778,7 @@ class HeteroMedDRADataProcessor:
                 self.num_nodes_by_level[level] = len(codes)
                 logger.info(f"  {level}: {len(codes)} 个节点")
 
-        #  2. Iterate over all rows and establish parent-child relations (without distinguishing Y/N, preserving DAG completeness)
+        # 2. 遍历所有行，建立父子关系（不区分 Y/N，保留 DAG 完整性）
         self.hierarchy_map = {}
         self.name_map = {}
         self.node_soc_map = {}
@@ -800,13 +794,13 @@ class HeteroMedDRADataProcessor:
                 hlt = self._safe_int(row, "HLT_CODE")
                 hlgt = self._safe_int(row, "HLGT_CODE")
                 soc = self._safe_int(row, "SOC_CODE")
-                pt_soc = self._safe_int(row, "PT_SOC_CODE")  #  * official primary SOC of the PT
+                pt_soc = self._safe_int(row, "PT_SOC_CODE")  # ★ 官方 PT 主 SOC
 
-                #  [key] record the official SOC of the PT from PT_SOC_CODE (setdefault keeps the first value; it should be unique per PT)
+                # 【关键】用 PT_SOC_CODE 记录 PT 的官方 SOC（setdefault 保留首次，同一 PT 应唯一）
                 if pt is not None and pt_soc is not None:
                     self.node_soc_map.setdefault(pt, pt_soc)
 
-                #  Primary-parent record (used only for contrastive learning, not for SOC labels)
+                # 主父记录（仅用于对比学习，不用来打 SOC 标签）
                 primary_flag = str(row.get("PRIMARY_SOC_FG", "N")).strip().upper()
                 if primary_flag == "Y":
                     if llt is not None and pt is not None:
@@ -821,13 +815,13 @@ class HeteroMedDRADataProcessor:
                 else:
                     non_primary_count += 1
 
-                #  Parent-child relations (all rows, preserving the DAG)
+                # 父子关系（所有行，保留 DAG）
                 self._add_relationship(llt, pt, "LLT")
                 self._add_relationship(pt, hlt, "PT")
                 self._add_relationship(hlt, hlgt, "HLT")
                 self._add_relationship(hlgt, soc, "HLGT")
 
-                #  name
+                # 名称
                 self._store_names(row, llt, "LLT")
                 self._store_names(row, pt, "PT")
                 self._store_names(row, hlt, "HLT")
@@ -839,7 +833,7 @@ class HeteroMedDRADataProcessor:
 
         logger.info(f"主 SOC 行数: {primary_count}, 非主 SOC 行数: {non_primary_count}")
 
-        #  3. Assemble the global node list
+        # 3. 整理全局节点列表
         nodes = sorted(list(self.hierarchy_map.keys()))
         self.node_codes = nodes
         self.node_levels = [self.hierarchy_map[n]["level"] for n in nodes]
@@ -854,11 +848,11 @@ class HeteroMedDRADataProcessor:
             ]
         logger.info(f"层级结构构建完成: 总节点数 {self.num_all_nodes}")
 
-        #  4. PT already obtained its SOC label from PT_SOC_CODE
+        # 4. PT 已从 PT_SOC_CODE 获得 SOC 标签
         pt_with_label = sum(1 for pt in self.level_nodes.get("PT", []) if pt in self.node_soc_map)
         logger.info(f"PT 官方 SOC 标签: {pt_with_label}/{len(self.level_nodes.get('PT', []))}")
 
-        #  5. LLT inherits the SOC of its parent PT
+        # 5. LLT 继承父 PT 的 SOC
         llt_inherited = 0
         for llt_code in self.level_nodes.get("LLT", []):
             parents = self.hierarchy_map.get(llt_code, {}).get("parent", [])
@@ -868,7 +862,7 @@ class HeteroMedDRADataProcessor:
                 llt_inherited += 1
         logger.info(f"LLT SOC 标签（继承父 PT）: {llt_inherited}/{len(self.level_nodes.get('LLT', []))}")
 
-        #  6. HLT is aggregated by voting over child PTs
+        # 6. HLT 从子 PT 投票聚合
         for hlt_code in self.level_nodes.get("HLT", []):
             children_pt = self.hierarchy_map.get(hlt_code, {}).get("children", [])
             votes = [self.node_soc_map[c] for c in children_pt if c in self.node_soc_map]
@@ -878,14 +872,14 @@ class HeteroMedDRADataProcessor:
                 # [0][0]：取第一个元组的第一个元素，也就是 "SOC_A"
                 self.node_soc_map[hlt_code] = Counter(votes).most_common(1)[0][0]
 
-        #  7. HLGT is aggregated by voting over child HLTs
+        # 7. HLGT 从子 HLT 投票聚合
         for hlgt_code in self.level_nodes.get("HLGT", []):
             children_hlt = self.hierarchy_map.get(hlgt_code, {}).get("children", [])
             votes = [self.node_soc_map[c] for c in children_hlt if c in self.node_soc_map]
             if votes:
                 self.node_soc_map[hlgt_code] = Counter(votes).most_common(1)[0][0]
 
-        #  8. SOC label coverage
+        # 8. SOC 标签覆盖率
         # 所有不是 SOC 的节点
         non_soc_nodes = [n for n in self.node_codes
                         if self.hierarchy_map[n]["level"] != "SOC"]
@@ -894,7 +888,7 @@ class HeteroMedDRADataProcessor:
         logger.info(f"SOC 标签覆盖率: {len(labeled_nodes)}/{len(non_soc_nodes)} "
                     f"({len(labeled_nodes)/len(non_soc_nodes)*100:.2f}%)")
 
-        #  9. SOC distribution diagnostics (key)
+        # 9. SOC 分布诊断（关键）
         # Counter 是一个“计数器”，用来统计一堆元素里每个元素出现了多少次； 是一个字典，键是元素，值是出现次数
         soc_counts = Counter(self.node_soc_map.values())
         total = sum(soc_counts.values())
@@ -906,7 +900,7 @@ class HeteroMedDRADataProcessor:
         logger.info(f"最大 SOC 占比: {soc_counts.most_common(1)[0][1] / total * 100:.1f}%")
         logger.info("=" * 60)
 
-        #  10. Primary-parent coverage
+        # 10. 主父覆盖率
         # 所有不是 SOC 的节点，并且有主父标签
         has_primary = [n for n in non_soc_nodes if n in self._primary_parent]
         logger.info(f"主父覆盖率: {len(has_primary)}/{len(non_soc_nodes)} "
@@ -953,9 +947,9 @@ class HeteroMedDRADataProcessor:
 
     # --------------------- 辅助方法 ---------------------
 
-    #  [deprecated / DEPRECATED] label construction now uses the v7.2 hierarchical strategy (PT uses the official PT_SOC_CODE,
-    #  LLT inherits from its parent PT, HLT/HLGT are aggregated by voting over children); this method is no longer called
-    #  in any of the three training scripts after v7.2 and is kept only for backward compatibility (see the archived script meddra/old/ for its call sites).
+    # 【已废弃 / DEPRECATED】当前标签构建已改用 v7.2 分层策略（PT 用官方 PT_SOC_CODE、
+    # LLT 继承父 PT、HLT/HLGT 由子节点投票聚合），本方法在 v7.2 之后的三个训练脚本中
+    # 均不再被调用，仅为兼容旧版代码保留（其调用点见归档脚本 meddra/old/）。
     def _infer_missing_soc_labels(self) -> None:
         """
         [已废弃·无调用] 为未获得 SOC 标签的节点（HLT/HLGT）从父节点继承 SOC。
@@ -976,7 +970,7 @@ class HeteroMedDRADataProcessor:
         if not unlabeled:
             return
         
-        #  Sort levels from high to low so that parent SOCs are inferred first (HLGT before HLT)
+        # 按层级从高到低排序，确保父节点的 SOC 优先被推断（HLGT 先于 HLT）
         unlabeled.sort(key=lambda n: level_order.get(self.hierarchy_map[n]["level"], 99))
         
         inferred = 0
@@ -990,7 +984,7 @@ class HeteroMedDRADataProcessor:
                     inferred += 1
                     found = True
                     break
-                #  The direct parent of an HLGT is the SOC itself
+                # HLGT 的直接父节点就是 SOC 本身
                 if self.hierarchy_map.get(p, {}).get("level") == "SOC":
                     self.node_soc_map[node] = p
                     inferred += 1
@@ -1012,8 +1006,8 @@ class HeteroMedDRADataProcessor:
         return int(val) if pd.notna(val) else None
 
 
-    #  [deprecated / DEPRECATED] since v7.2 the SOC mapping is written directly into self.node_soc_map by build_hierarchy;
-    #  this method is no longer called in any of the three training scripts (see the archived script meddra/old/).
+    # 【已废弃 / DEPRECATED】v7.2 起 SOC 映射由 build_hierarchy 直接写入 self.node_soc_map，
+    # 本方法在三个训练脚本中均不再被调用（调用点见归档脚本 meddra/old/）。
     def _set_node_soc_code(self, node_code, soc_code, overwrite=False):
         """
         [已废弃·无调用] 安全地存储节点到 SOC 的映射。
@@ -1081,7 +1075,7 @@ class HeteroMedDRADataProcessor:
         for level in self.level_names:
             # 小写的层级名称
             lvl = level.lower()
-            #  all nodes at the current level
+            # 当前层所有节点
             nodes = self.level_nodes.get(level, [])
             if not nodes:
                 continue
@@ -1292,7 +1286,7 @@ class HeteroMedDRADataProcessor:
         """返回所有节点代码的集合。"""
         return set(self.node_codes)
 
-    #  [reserved / not wired] new-vs-old node difference detection: not called by the current training flow (reserved for future incremental training).
+    # 【预留·未接线】新旧版本节点差集检测：当前训练流程未调用（仅为后续增量训练预留）。
     def get_new_nodes(self, old_processor: "HeteroMedDRADataProcessor") -> List[int]:
         """
         与旧版本处理器比较，返回新增的节点代码。
@@ -1306,7 +1300,7 @@ class HeteroMedDRADataProcessor:
         old_codes = old_processor.get_all_node_codes()
         return [n for n in self.node_codes if n not in old_codes]
 
-    #  [reserved / not wired] new-vs-old node difference detection: not called by the current training flow (reserved for future incremental training).
+    # 【预留·未接线】新旧版本节点差集检测：当前训练流程未调用（仅为后续增量训练预留）。
     def get_removed_nodes(self, old_processor: "HeteroMedDRADataProcessor") -> List[int]:
         """
         与旧版本处理器比较，返回被移除的节点代码。
@@ -1324,13 +1318,13 @@ class HeteroMedDRADataProcessor:
 def _resolve_csv(cfg: "BaselineConfig") -> str:
     """解析 MedDRA CSV 实际路径（跨平台）：
 
-    依次尝试：① 配置给定的 csv_path；② Kaggle 输入目录（<DATA_DIR>
+    依次尝试：① 配置给定的 csv_path；② Kaggle 输入目录（/kaggle/input/**/MEDDRA_DATA_29_0.csv）；
     ③ 当前工作目录及其子目录；④ 脚本配置区的内置默认路径。
     找到的第一个存在的文件即为实际路径，并打印提示；全部找不到时给出可操作的报错。
     """
     import glob as _g
     cands = [cfg.csv_path]
-    for pat in ("<DATA_DIR>",
+    for pat in ("/kaggle/input/**/MEDDRA_DATA_29_0.csv",
                 os.path.join(os.getcwd(), "**", "MEDDRA_DATA_29_0.csv")):
         try:
             cands += _g.glob(pat, recursive=True)
@@ -1344,7 +1338,7 @@ def _resolve_csv(cfg: "BaselineConfig") -> str:
             return p
     raise FileNotFoundError(
         "未找到 MedDRA CSV（MEDDRA_DATA_29_0.csv）。请在 config.py / 脚本配置区设置 CSV_PATH，"
-        "或在 Kaggle 上把该 CSV 作为数据集挂载到 <DATA_DIR> "
+        "或在 Kaggle 上把该 CSV 作为数据集挂载到 /kaggle/input/；已尝试: "
         + ", ".join([str(c) for c in cands[:4]]))
 
 

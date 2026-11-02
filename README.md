@@ -3,7 +3,7 @@
 Reproduction code and experimental artefacts for the manuscript submitted to the
 *Journal of Biomedical Informatics* (JBI):
 
-> **A Heterogeneous Graph Framework with Multi-Level Contrastive Learning for Primary SOC Classification of MedDRA Terms
+> **A Diagnostic Evaluation of Heterogeneous-Graph Term Embeddings for MedDRA Primary SOC Classification
 > in a Multi-Parent DAG**
 
 The method embeds MedDRA terms by combining term-name semantics (PubMedBERT) with the
@@ -33,7 +33,7 @@ weighted contrastive loss with positive–negative mutual exclusion.
 
 | Directory | Contents |
 |---|---|
-| `01_code/` | `Meddra_full_trainer_SAGE.py` (main method), `meddra_full_trainer_GAT.py`, `meddra_full_trainer_noGNN.py`; inductive variants `Meddra_inductive_{SAGE,GAT,noGNN}.py`; seed re-runs `train_C7_seed43.py`, `train_V3_seed43.py`; `diagnose_joint_subgroup.py`; `baseline/` = text-embedding (B1), KGE (B2) and graph-SSL (B3) baselines |
+| `01_code/` | `Meddra_full_trainer_SAGE.py` (main method), `meddra_full_trainer_GAT.py`, `meddra_full_trainer_noGNN.py`; inductive variants `Meddra_inductive_{SAGE,GAT,noGNN}.py`; seed re-runs `train_C7_seed43.py`, `train_V3_seed43.py`; `diagnose_joint_subgroup.py`; offline analysis scripts (`rule_baseline_{soc,neighbor}.py`, `multiaxial_summary.py`, `subgroup_{performance,multiaxial}.py`, `make_paper_numbers.py`, `compile_*`, `inductive_rule_baseline.py`, `aggregate_joint_diag.py`, `finalize_review_analysis.py`); the experiment scheduler `run_review_experiments_full.py`; the twin-LLT leakage tools `export_test_predictions.py` / `analyze_twin_leakage.py`; `baseline/` = text-embedding (B1), KGE (B2) and graph-SSL (B3) baselines |
 | `02_data_dictionary/` | `MedDRA_data_dictionary.md` (flat-table structure, required fields, how the multi-parent DAG arises, primary-parent rule), `synthetic_meddra_demo.csv`, `make_synthetic_demo.py` |
 | `04_results/` | `results_summary_5tables.md` — consolidated result tables for cross-checking against the manuscript |
 | `05_resource_ledger/` | `platform_resources.csv` — authoritative parameters, memory, peak GPU memory and per-epoch time for 22 configurations. A copy is also retained under `07_run_artifacts/` as a per-release artefact, but `05_resource_ledger/` is the canonical source |
@@ -56,8 +56,8 @@ the run metadata and are therefore given as minimums.
 
 ## Provenance note
 
-The scripts under `01_code/` are English-comment transcriptions of the exact run-time scripts used
-for the reported results. For byte-level traceability, each `RUN_META.json` in `07_run_artifacts/`
+The scripts under `01_code/` are the run-time scripts used to produce the reported results (comments
+are in Chinese). For byte-level traceability, each `RUN_META.json` in `07_run_artifacts/`
 records the original `script_md5`; compare it with the included script if a referee requires an
 exact hash match.
 

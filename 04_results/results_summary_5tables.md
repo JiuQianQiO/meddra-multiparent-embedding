@@ -1,172 +1,152 @@
-# Consolidated Result Tables (5 tables)
+# Consolidated Result Tables
 
-> Data source: `test_metrics_*.json`, `result_B*.json`, `inductive_holdout.json` and the `run_*.log`
-> files under each model directory of the run-artefact root.
+> Data source: `test_metrics_*.json`, `result_B*.json`, `REVIEW_SEED_metrics.csv`,
+> `RULE_BASELINE_NEIGHBOR.json`, `MULTIAXIAL_SUMMARY.json`, `INDUCTIVE_SEEDS.json` and
+> `PAPER_NUMBERS.md` under the analysis-output directory (`analysis_out_20261029/analysis_out/`).
 >
-> **Protocol (important)**: all main results are obtained on the **independent test set of the
-> three-way protocol (train / val / test)** — under MedDRA 29.0, train 97,641 / val 10,837 /
-> test 12,041 (`test_ratio=0.1`, `val_ratio=0.1`, `split_seed=42`); under 29.1, train 98,094 /
-> val 10,889 / test 12,096. The `num_test_nodes` field of `test_metrics_*.json` gives the number of
-> independent test nodes. The three noGNN variants were re-run under the three-way protocol on
-> 2026-10-04 (latest logs `run_noGNN_*_20261004_*.log`).
+> **Protocol**: all main results use the independent test set of the three-way protocol
+> (train / val / test). MedDRA 29.0: train 97,641 / val 10,837 / test 12,041
+> (`test_ratio=0.1`, `val_ratio=0.1`, `split_seed=42`); MedDRA 29.1: 98,094 / 10,889 / 12,096.
+> The split is verified member-by-member (see `06_split_verification/`).
 
 ---
 
-## Table 1 · Main experiment: MedDRA hierarchical classification (three-way independent test set, 12,041 nodes under 29.0)
+## Table 1 · Data statistics and multiaxiality (MedDRA 29.0)
 
-HLGT 35 / HLT 177 / PT 2,738 / LLT 9,091 (29.0 test set). All GNN models use PubMedBERT
-initialisation and full contrastive learning unless annotated otherwise.
-
-| Model | Init | Acc | Macro-F1 | Weighted-F1 | HLGT F1 | HLT F1 | PT F1 | LLT F1 |
-|---|---|---|---|---|---|---|---|---|
-| **SAGE (proposed / C1V1)** | PubMedBERT | **0.9932** | 0.9892 | 0.9932 | 0.8784 | 0.8954 | 0.9742 | 0.9946 |
-| SAGE − primary-parent siblings (C6) | PubMedBERT | 0.9944 | **0.9919** | 0.9944 | 0.8784 | 0.9052 | 0.9832 | 0.9958 |
-| SAGE − secondary-parent siblings (C2) | PubMedBERT | 0.9940 | 0.9915 | 0.9940 | 0.8784 | 0.9120 | 0.9795 | 0.9960 |
-| SAGE without contrastive learning (V2) | PubMedBERT | 0.9943 | 0.9912 | 0.9943 | 0.8784 | 0.9172 | 0.9800 | 0.9954 |
-| SAGE − hard negatives (C4) | PubMedBERT | 0.9929 | 0.9898 | 0.9929 | 0.8784 | 0.9334 | 0.9787 | 0.9936 |
-| SAGE − positive/negative exclusion (C5) | PubMedBERT | 0.9933 | 0.9899 | 0.9933 | 0.8784 | 0.9120 | 0.9770 | 0.9945 |
-| SAGE (MedDRA 29.1) * | PubMedBERT | 0.9942 | 0.9919 | 0.9942 | 0.9062 | 0.8842 | 0.9799 | 0.9965 |
-| SAGE − parent-child term (C3) | PubMedBERT | 0.9903 | 0.9846 | 0.9903 | 0.8784 | 0.9220 | 0.9636 | 0.9912 |
-| SAGE random init + CL (V4) | random | 0.9890 | 0.9820 | 0.9889 | 0.8675 | 0.8944 | 0.9549 | 0.9902 |
-| SAGE − primary-parent siblings − parent-child (C7) | PubMedBERT | 0.9867 | 0.9798 | 0.9867 | 0.8784 | 0.9024 | 0.9617 | 0.9858 |
-| SAGE random init, no CL (V3) | random | 0.9747 | 0.9578 | 0.9746 | 0.8675 | 0.8785 | 0.9290 | 0.9659 |
-| **GAT** | PubMedBERT | 0.9911 | 0.9869 | 0.9911 | 0.8784 | 0.9030 | 0.9700 | 0.9928 |
-| noGNN-CODER | CODER | 0.8947 | 0.8571 | 0.8947 | 0.6500 | 0.8433 | 0.8321 | 0.8628 |
-| noGNN-SapBERT | SapBERT | 0.8915 | 0.8533 | 0.8913 | 0.7032 | 0.7545 | 0.8057 | 0.8656 |
-| noGNN-PubMedBERT | PubMedBERT | 0.8345 | 0.7793 | 0.8346 | 0.7077 | 0.7125 | 0.7495 | 0.7828 |
-
-> Note: the HLGT macro-F1 of most SAGE/GAT models is constant at 0.8784 (the HLGT test set has only
-> 35 samples, and the models make nearly identical predictions at that level).
-> *The MedDRA 29.1 row is a different data version (121,079 nodes, test set 12,096); its node
-> enumeration differs from 29.0, so its per-level sample sizes must not be mixed with those of the
-> 29.0 rows. That row serves only the cross-version comparison (see Section 4.6 of the manuscript).
-> Key gaps: the proposed method (C1V1) leads noGNN-PubMedBERT, which shares the same encoder, by
-> **+15.87 / +20.99** points (Acc / Macro-F1), and the strongest no-graph baseline noGNN-CODER by
-> +9.85 / +13.21 points.
-
----
-
-## Table 2 · Ablation: independent contribution of each contrastive-loss term (SAGE)
-
-| Ablation | Removed term | Δ Macro-F1 (vs C1V1 = 0.9892) | Observation |
-|---|---|---|---|
-| C1V1 | — (full baseline) | 0 (0.9892) | — |
-| C6 | primary-parent siblings | +0.0027 | redundant, slight increase |
-| C2 | secondary-parent siblings | +0.0023 | redundant, slight increase |
-| V2 | entire contrastive learning | +0.0020 | CL gain beyond graph structure ≈ 0 |
-| C4 | hard negatives | +0.0006 | almost no effect |
-| C5 | positive/negative exclusion | +0.0007 | almost no effect |
-| C3 | parent-child term | **−0.0046** | **the only clearly positive contributor** |
-| C7 | primary-parent siblings + parent-child | −0.0094 | cumulative effect of removing the parent-child term |
-
-> Note: Δ is obtained by **subtracting the 4-decimal values shown in the table** (consistent with
-> the manuscript). Using full-precision raw values gives C6 +0.28, C2 +0.24, V2 +0.21, C4 +0.06,
-> C5 +0.07, C3 −0.45, C7 −0.94 points; the two conventions differ only in the last digit and do not
-> change the direction or ranking of any conclusion.
-
-**Conclusion**: among the five terms, only the **parent-child term** yields a substantial
-classification gain; the sibling terms, hard negatives and exclusion are redundant or even
-slightly harmful under the current setting.
-
----
-
-## Table 3 · Joint ablation of initialisation and contrastive learning (V series)
-
-| Model | Init | CL | Macro-F1 | Δ (vs C1V1) |
+| Level | Nodes | Multi-parent nodes / total | Multi-SOC nodes / total | Test set: multi-SOC / total |
 |---|---|---|---|---|
-| C1V1 | PubMedBERT | ✓ | 0.9892 | baseline |
-| V2 | PubMedBERT | ✗ | 0.9912 | +0.0020 |
-| V4 | random | ✓ | 0.9820 | −0.0072 |
-| V3 | random | ✗ | 0.9578 | −0.0314 |
+| SOC | 27 | — | — | — |
+| HLGT | 337 | 17/337 (5.04%) | 17/337 (5.04%) | 1/35 (2.86%) |
+| HLT | 1,739 | 18/1,739 (1.04%) | 119/1,739 (6.84%) | 14/177 (7.91%) |
+| PT | 27,361 | 10,350/27,361 (37.83%) | 11,650/27,361 (42.58%) | 1,162/2,738 (42.44%) |
+| LLT | 91,082 | 0/91,082 | 42,539/91,082 (46.70%) | 4,226/9,091 (46.49%) |
+| **Total** | 120,519 | — | 54,325/120,519 (45.08%) | 5,403/12,041 (44.87%) |
 
-**Conclusion**: the contribution of pretrained-language-model initialisation (≈2–3 F1) far exceeds
-that of contrastive learning (≈0–0.2 F1); random initialisation needs 300+ epochs to converge.
+> Multi-parent and multi-SOC overlap heavily: every multi-parent PT is also multi-SOC
+> (10,350/10,350), and 88.84% of multi-SOC PTs are multi-parent (1,300 are single-parent multiaxial).
 
 ---
 
-## Table 4 · Inductive generalisation: held-out HLT subtrees (174 HLTs with all their descendants, 18,567 nodes)
+## Table 2 · Main and external-baseline results (held-out-label test set, 12,041 nodes)
 
-Held-out composition: HLT 174 / PT 4,157 / LLT 14,236 = 18,567 (training set 101,952; the two sum
-to 120,519). HLGT and SOC nodes are not in the held-out set, so the HLGT level has no evaluation
-samples (recorded as 0) — this does not mean the level was untrained.
+HLGT 35 / HLT 177 / PT 2,738 / LLT 9,091. Per-level columns are Macro-F1 within the level.
 
-| Model | Held-out mode | Acc | Macro-F1 | HLT Acc | PT Acc | LLT Acc |
+| Category | Model | Acc | Macro-F1 | Weighted-F1 | HLGT F1 | HLT F1 | PT F1 | LLT F1 |
+|---|---|---|---|---|---|---|---|---|
+| **Proposed** | **SAGE + PubMedBERT + CL (C1V1)** | **0.9932** | **0.9892** | **0.9932** | 0.8784 | 0.8954 | 0.9742 | 0.9946 |
+| GNN control | GAT + PubMedBERT + CL | 0.9911 | 0.9869 | 0.9911 | 0.8784 | 0.9030 | 0.9700 | 0.9928 |
+| no-graph | NoGNN + PubMedBERT | 0.8345 | 0.7793 | 0.8346 | 0.7077 | 0.7125 | 0.7495 | 0.7828 |
+| no-graph | NoGNN + SapBERT | 0.8915 | 0.8533 | 0.8913 | 0.7032 | 0.7545 | 0.8057 | 0.8656 |
+| no-graph | NoGNN + CODER | 0.8947 | 0.8571 | 0.8947 | 0.6500 | 0.8433 | 0.8321 | 0.8628 |
+| training-free kNN | kNN over BGE | 0.9372 | 0.9168 | 0.9373 | — | — | — | — |
+| training-free kNN | kNN over E5 | 0.9244 | 0.8987 | 0.9245 | — | — | — | — |
+| text embedding | B1-BGE (probe) | 0.8684 | 0.8312 | 0.8679 | — | — | — | — |
+| text embedding | B1-E5 (probe) | 0.8526 | 0.8114 | 0.8521 | — | — | — | — |
+| structure only | B2-TransE | 0.2100 | 0.0911 | 0.1538 | — | — | — | — |
+| structure only | B2-RotatE | 0.2852 | 0.2101 | 0.2599 | — | — | — | — |
+| structure only | B2-ComplEx | 0.1849 | 0.0131 | 0.0618 | — | — | — | — |
+| graph SSL | B3-DGI | 0.8624 | 0.8144 | 0.8619 | — | — | — | — |
+| graph SSL | B3-GraphMAE | 0.8410 | 0.7827 | 0.8399 | — | — | — | — |
+
+> All rows are single seed-42 runs; multi-seed means for the main models are in Table A (below) and
+> Appendix A.4. Key gaps: the proposed method leads NoGNN+PubMedBERT (same encoder) by +15.87/+20.99
+> (Acc/Macro-F1) and the strongest text-only reference kNN-BGE by +5.60/+7.24.
+
+---
+
+## Table 3 · Contrastive-loss ablation (C1–C7 + V2; single seed-42)
+
+| Config | Removed | Acc | ΔAcc | Macro-F1 | ΔF1 | PT intra (val) |
 |---|---|---|---|---|---|---|
-| IND-SAGE-KEEP | edges kept | **0.9333** | **0.8682** | 0.9253 | 0.9310 | 0.9340 |
-| IND-GAT-KEEP | edges kept | 0.9315 | 0.8617 | 0.9195 | 0.9298 | 0.9321 |
-| IND-noGNN (PubMedBERT) | no edges | 0.7453 | 0.6299 | 0.8276 | 0.7640 | 0.7388 |
-| IND-GAT-MASK | edges removed | 0.5867 | 0.3454 | 0.7586 | 0.5850 | 0.5851 |
-| IND-SAGE-MASK | edges removed | 0.5487 | 0.3580 | 0.6839 | 0.4934 | 0.5632 |
+| C1V1 | — (reference) | 0.9932 | 0 | 0.9892 | 0 | 0.8210 |
+| C2 | secondary-parent siblings | 0.9940 | +0.08 | 0.9915 | +0.23 | 0.8127 |
+| C3 | parent-child | 0.9903 | −0.29 | 0.9846 | −0.46 | 0.8602 |
+| C4 | hard negatives | 0.9929 | −0.03 | 0.9898 | +0.06 | 0.8223 |
+| C5 | positive-negative exclusion | 0.9933 | +0.01 | 0.9899 | +0.07 | 0.8223 |
+| C6 | primary-parent siblings | 0.9944 | +0.12 | 0.9919 | +0.27 | 0.8046 |
+| C7 | primary-parent siblings + parent-child | 0.9867 | −0.65 | 0.9798 | −0.94 | 0.8614 |
+| V2 | entire CL (features unchanged) | 0.9943 | +0.11 | 0.9912 | +0.20 | 0.8028 |
 
-> Note: the HLT / PT / LLT columns are **per-level accuracies** (unlike the same-named columns of
-> Table 1, which are per-level Macro-F1). The run logs output both per-level accuracy and per-level
-> Macro-F1 (e.g. IND-SAGE-KEEP at HLT: Acc 0.9253 / Macro-F1 0.8629); this table consistently uses
-> the former. The corresponding per-level Macro-F1 values are: IND-SAGE-KEEP 0.8629 / 0.8677 /
-> 0.8679, IND-GAT-KEEP 0.8340 / 0.8663 / 0.8594, IND-noGNN 0.7293 / 0.6543 / 0.6201,
-> IND-GAT-MASK 0.5558 / 0.3311 / 0.3401, IND-SAGE-MASK 0.4334 / 0.3060 / 0.3530.
-
-**Conclusion**: GNNs with edges kept (0.93) ≫ noGNN without edges (0.75) ≫ GNNs with edges removed
-(0.55). Generalisation comes from graph message passing rather than from node text features.
+> Only C7 (−1.38 pp over five seeds) exceeds the 0.93 pp cross-configuration threshold and V1's ±2 sd.
+> Removing CL (V2) is neutral (+0.02 pp over five seeds), so CL is not shown to improve classification.
 
 ---
 
-## Table 5 · Seed stability (SEED43 re-run, three-way independent test set)
+## Table 4 · Two-level subgroup attribution (percentage points)
 
-| Model | seed=42 | seed=43 | Δ Macro-F1 |
-|---|---|---|---|
-| C7 (no primary-parent siblings, no parent-child) | 0.9798 | 0.9732 | −0.0066 |
-| V3 (random, no CL) | 0.9578 | 0.9755 | +0.0177 |
-
-> The main models (C1V1/C6/C2, etc.) are highly stable; the two "weakened" configurations show small
-> variation when the seed changes (0.7–1.8 F1). V3 varies more because its random features change
-> with the seed.
-
----
-
-## Training-cost benchmark (Tesla T4, standardised)
-
-| Model | Memory | GPU memory | Time (s) |
-|---|---|---|---|
-| SAGE (C1V1 full) | 3.5G | 3.6G | 288 |
-| SAGE (V2/V3/V4) | 2.5–3.4G | 2.6–3.4G | 104–284 |
-| GAT | 3.5G | 11.2G | 287 |
-| noGNN (three variants) | 3.3–3.4G | 1.3–1.4G | 106–114 |
-| IND-SAGE | 3.5G | 3.6G | 304 |
-| IND-GAT | 3.5G | 11.3–11.7G | 298–310 |
-
----
-
-## External baselines (B1–B3, three-way protocol, test set)
-
-| Category | Model | Acc | Macro-F1 | Weighted-F1 | Note |
+| Model | Parent-chain net effect | 2-D joint | PT parent∈ − ∉ | Parent component | Child component |
 |---|---|---|---|---|---|
-| Structure only | B2-TransE | 0.2100 | 0.0911 | 0.1538 | PyKEEN, frozen embeddings + probe |
-| Structure only | B2-RotatE | 0.2852 | 0.2101 | 0.2599 | same as TransE |
-| Structure only | B2-ComplEx | 0.1849 | 0.0131 | 0.0618 | same as TransE |
-| Strong text | B1-BGE | 0.8684 | 0.8312 | 0.8679 | kNN variant 0.9372 |
-| Strong text | B1-E5 | 0.8526 | 0.8114 | 0.8521 | kNN variant 0.9244 |
-| Generic graph SSL | B3-DGI | 0.8624 | 0.8144 | 0.8619 | folded homogeneous graph + PubMedBERT, 300 epochs (re-run 2026-10-05; validation Acc 0.8638) |
-| Generic graph SSL | B3-GraphMAE | 0.8410 | 0.7827 | 0.8399 | same as DGI (re-run 2026-10-05; validation Acc 0.8427) |
+| Proposed | +1.44 | +2.23 | +0.84 | −0.08 | +2.31 |
+| GAT | +1.03 | +1.31 | +0.62 | −0.01 | +1.32 |
+| NoGNN + PubMedBERT | −0.78 | +1.11 | −0.18 | −2.71 | +3.81 |
+| NoGNN + SapBERT | +0.17 | +1.00 | −0.56 | −3.58 | +4.58 |
+| NoGNN + CODER | −0.72 | +0.38 | −1.27 | −3.45 | +3.83 |
 
-> Note: B1/B2 were run on 2026-10-03; the two B3 rows come from the **single run** of 2026-10-05
-> (DGI 0.8624 / GraphMAE 0.8410, traceable to `result_B3_dgi.json` and `result_B3_graphmae.json`);
-> they were not replicated and should be regarded as a single observation. Project history: DGI ran
-> once on 2026-10-03 giving 0.8459, 1.65 points from the re-run value; because the artefacts of that
-> first run were not archived, the paper no longer reports it as two independent runs. All three
-> baseline groups generate their splits with the same stratified algorithm and seed as the main
-> experiment (`test_ratio=0.1`, `val_ratio=0.1`, `split_seed=42`), and the resulting set sizes match
-> the main experiment (97,641 / 10,837 / 12,041); the splits have been **verified member by member**
-> against the main experiment (see `06_split_verification/split_verification_record.md`).
-> `result_B1_bge.json` records `probe_C=4.0` with accuracy 0.8684 (the script writes 4 decimals via
-> `round(..., 4)`, consistent with the run log; there is no precision discrepancy).
+> Parent-chain groups are 10,749/1,238 (PT level 2,235/503); the 2-D joint is n=5,642. The remaining
+> 54 test nodes are 35 HLGT (parent = SOC, outside the diagnosis) + 19 HLT with no primary-parent record.
 
 ---
 
-## SapBERT metric re-check (corrected)
+## Table 5 · Inductive evaluation (whole-HLT-subtree hold-out, disjoint model selection)
 
-The early `noGNN/SapBERT/test_metrics_noGNN.json` was byte-identical to the PubMedBERT file (same
-md5) because SapBERT had not been re-run under the three-way protocol and the file had been
-overwritten by the older PubMedBERT result. **This was corrected by a re-run on 2026-10-04**: the
-current SapBERT three-way test results are Acc 0.8915 / Macro-F1 0.8533, and SapBERT, PubMedBERT
-(0.8345 / 0.7793) and CODER (0.8947 / 0.8571) are now independent with distinct md5 values. The
-earlier judgement that "the two models coincidentally agree" is void.
+| Setting | Model | Acc | Macro-F1 | vs no-graph baseline (pp) |
+|---|---|---|---|---|
+| A (EDGE-MASK) | IND-SAGE-MASK | 0.4228 | 0.2023 | −32.18 |
+| A (EDGE-MASK) | IND-NoGNN-PubMedBERT | 0.7445 | 0.6339 | — (reference) |
+| B (EDGE-KEEP) | IND-SAGE-KEEP | **0.9280 ± 0.0013** | **0.8512 ± 0.0052** | **+18.34** |
+
+> IND-SAGE-KEEP is mean ± sample sd over five training seeds; the other two rows are single runs.
+> KEEP − ancestor-label rule (I5 = 0.8172/0.7167) = +11.08 pp. Model selection is disjoint (weights
+> selected on non-held-out nodes only); first-round values are reported in Appendix B.7.
+
+---
+
+## Rule baselines and kNN (deterministic, same test split)
+
+| Rule | Information used | Acc | Macro-F1 |
+|---|---|---|---|
+| R1 | node's own label fields | 1.0000 | 1.0000 |
+| R2 | topology only (unique ancestor, abstain) | 0.5481 | 0.6485 |
+| R3/R4 | topology only (first / majority ancestor) | 0.7827 | 0.7193 |
+| R5 | labelled one-hop neighbours | 0.9610 | 0.9421 |
+| **R6** | labelled children → parent → sibling-LLT cascade | **0.9917** | **0.9883** |
+
+> R6 covers 97.53% of test nodes (fallback to R3). The proposed method exceeds R6 by +0.15/+0.09 pp
+> single-run (+0.23/+0.24 pp over five seeds); the transductive accuracy therefore mostly reflects the
+> primary axis recoverable from labelled neighbours.
+
+---
+
+## Subgroup, SOC-control, multi-seed, and twin-LLT summaries
+
+**Multiaxiality (V1, n=5)**: single-axis Acc 0.9981 ± 0.0001, multiaxial Acc 0.9889 ± 0.0014,
+multiaxial Macro-F1 0.9813 ± 0.0028. Test set is 44.87% multi-SOC.
+
+**SOC-name / structure controls (overall Macro-F1, n=3, Δ vs V1 mean)**: E1A +0.07, E1B −0.03,
+SOCDROP −0.06 — SOC names, identity and structure are not a classification shortcut.
+
+**Multi-seed (Acc / Macro-F1)**: V1 0.9940±0.0006 / 0.9907±0.0011 (n=5); V2 0.9939±0.0009 /
+0.9909±0.0010 (n=5); C7 0.9854±0.0019 / 0.9769±0.0029 (n=5); V3 0.9807±0.0056 / 0.9692±0.0094
+(n=5); V4 0.9883±0.0027 / 0.9817±0.0042 (n=5); GAT 0.9919±0.0008 / 0.9884±0.0013 (n=3);
+NoGNN+PubMedBERT 0.8336±0.0025 / 0.7785±0.0033 (n=3).
+
+**Twin-LLT leakage**: 81.3% of test PTs (2,226/2,738) have an identically coded and named LLT in the
+training set. Splitting test PTs by twin-LLT visibility gives 0.9870 vs 0.9766 accuracy (+1.04 pp,
+z=1.75, two-sided p=0.08), i.e. at most +0.19 pp of the overall 0.9932. The reverse channel is absent.
+
+---
+
+## Training-cost benchmark (Tesla T4)
+
+| Model | Params | Memory | Peak GPU | Time/epoch |
+|---|---|---|---|---|
+| SAGE (C1V1) | 4.28M | 3.5G | 3.6G | 288 s |
+| SAGE (V2) | 4.28M | 3.4G | 3.0G | 106 s |
+| GAT | 7.80M | 3.5G | 11.2G | 287 s |
+| NoGNN (three variants) | 0.99M | 3.3–3.4G | 1.3–1.4G | 106–114 s |
+| IND-SAGE | 4.28M | 3.5G | 3.6G | 304 s |
+
+---
+
+> Every number above traces to `07_run_artifacts/` (metrics / histories / diagnostics / provenance)
+> or the analysis-output directory; see `PAPER_NUMBERS.md` for the place-by-place source mapping.

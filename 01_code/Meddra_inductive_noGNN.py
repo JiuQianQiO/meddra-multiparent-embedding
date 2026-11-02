@@ -1,23 +1,19 @@
 # =============================================================================
-# File: meddra_noGNN_trainer.py
-# Purpose: MedDRA fine-tuning with MedBERT features only (no GNN, no contrastive learning)
-# Version: 7.1-noGNN
-# Notes:
-#   1. Uses MedBERT features + a linear classifier for SOC classification only
-#   2. All graph convolution, contrastive loss and projection heads are removed
-#   3. Retains caching, visualization and early stopping (based on validation accuracy)
-#   4. During validation, computes and records the intra-cluster cosine similarity of each
-#      level (HLGT/HLT/PT/LLT)
-#   5. The SOC label logic is fully aligned with SAGE/GAT (v7.2 hierarchical strategy,
-#      identical across the three files):
-#      PT uses the official PT_SOC_CODE, LLT inherits from its parent PT, and HLT/HLGT are
-#      aggregated by majority vote over child nodes; PRIMARY_SOC_FG is used only to
-#      determine the primary parent.
-#      Note: _infer_missing_soc_labels, used in early versions for "parent-node inheritance
-#      back-fill", is deprecated and is **no longer called** by the current implementation
-#      (the definition is kept only for backward compatibility; see the [deprecated] marker
-#      at the method).
+# 文件: meddra_noGNN_trainer.py
+# 功能: MedDRA 纯 MedBERT 微调（无 GNN，无对比学习）
+# 版本: 7.1-noGNN
+# 说明:
+#   1. 只使用 MedBERT 特征 + 线性分类器进行 SOC 分类
+#   2. 删除所有图卷积、对比损失、投影头
+#   3. 保留缓存、可视化、早停（基于验证准确率）
+#   4. 验证时计算各层级（HLGT/HLT/PT/LLT）的簇内余弦相似度并记录
+#   5. SOC 标签逻辑与 SAGE/GAT 完全对齐（v7.2 分层策略，三文件一致）：
+#      PT 使用官方 PT_SOC_CODE、LLT 继承父 PT、HLT/HLGT 由子节点投票聚合（众数）；
+#      PRIMARY_SOC_FG 仅用于确定主父。
+#      注意：早期版本用于“父节点继承回填”的 _infer_missing_soc_labels 已废弃，
+#      当前实现**不再调用**（定义保留仅为兼容旧版，见方法处的 [已废弃] 标注）。
 # =============================================================================
+
 import os
 import sys
 import shutil
@@ -49,26 +45,26 @@ from transformers import AutoTokenizer, AutoModel
 from tqdm import tqdm
 
 # =============================================================================
-#  [run directory] one folder per experiment + a shared cache directory
+# 【运行目录】每实验一个文件夹 + 共享缓存目录
 # -----------------------------------------------------------------------------
-#  Design goal: a single run writes to exactly one folder; experiments never overwrite each other, which simplifies archiving and retrieving numbers for the paper.
-#    * RUN_DIR   -- the **single output directory** of this run: logs / training-history JSON / checkpoint /
-#                   weights .pth / embedding CSV / all PNG files are written into it.
-#    * CACHE_DIR -- graph cache and text-feature cache, **shared across experiments** and independent of the experiment.
+# 设计目标：一次运行只写一个文件夹，实验之间互不覆盖，便于归档与论文取数。
+#   · RUN_DIR   —— 本次实验的**唯一输出目录**：日志 / 训练历史 JSON / checkpoint /
+#                  权重 .pth / 嵌入 CSV / 各张 PNG 全部落在里面。
+#   · CACHE_DIR —— 图缓存与文本特征缓存，**跨实验共享**，不随实验变化。
 #                  原因：缓存只与"CSV / 维度 / 编码器"有关，与实验配置无关；noGNN 三种编码器
 #                        的特征缓存文件名已含 feature_model，彼此不会覆盖。
-#  Directory selection priority (high -> low):
-#    (1) environment variable MEDDRA_RUN_DIR                         specifies the output directory directly (the experiment name is taken from that directory name)
-#    (2) environment variables MEDDRA_OUTPUT_ROOT + MEDDRA_EXPERIMENT   combine into "output root / experiment name"
-#    (3) default = **current working directory**: with no path specified, logs / training history / checkpoints / weights / embedding CSV / PNG
-#       and the cache are all written to the "current folder" (independent of the script name, its location, or any arguments).
-#    Cache directory: MEDDRA_CACHE_DIR > <output directory>/meddra_cache
-#       (to share one cache across experiments, set `MEDDRA_CACHE_DIR=<shared directory>` explicitly)
-#  Usage: cd into a folder -> python <script of any name>.py              # all results land here
+# 目录选择优先级（高 → 低）：
+#   ① 环境变量 MEDDRA_RUN_DIR                        直接指定输出目录（实验名取该目录名）
+#   ② 环境变量 MEDDRA_OUTPUT_ROOT + MEDDRA_EXPERIMENT  拼出"输出根 / 实验名"
+#   ③ 默认 = **当前工作目录**：不指定任何路径 → 日志 / 训练历史 / 断点 / 权重 / 嵌入 CSV / PNG
+#      以及缓存，全部落在"当前文件夹"（与脚本叫什么名字、放在哪里、有没有参数都无关）。
+#   缓存目录：MEDDRA_CACHE_DIR > <输出目录>/meddra_cache
+#      （想跨实验共用一份缓存 → 显式设 `MEDDRA_CACHE_DIR=<公共目录>`）
+# 用法：cd 到某文件夹 → python <任意名字的脚本>.py              # 全部结果落这里
 #       cd 到某文件夹 → python <脚本>.py PubMedBert --jobs 1    # 启动器：自动建 PubMedBert/
 # =============================================================================
-#  [Kaggle / Jupyter compatibility] __file__ is undefined inside a cell -> fall back safely to "no script path";
-#  in such environments, specify the experiment name and output directory via environment variables (MEDDRA_EXPERIMENT / MEDDRA_OUTPUT_ROOT).
+# 【兼容 Kaggle / Jupyter】单元格里没有 __file__ → 安全回退成"无脚本路径"；
+# 那种环境下请用环境变量指定实验名与输出目录（MEDDRA_EXPERIMENT / MEDDRA_OUTPUT_ROOT）。
 def _safe_script_path() -> str:
     """本模块对应的 .py 文件绝对路径；实在找不到（如 Jupyter 单元格）返回 ''。
 
@@ -87,7 +83,7 @@ def _safe_script_path() -> str:
         if not _c:
             continue
         _p = os.path.abspath(str(_c))
-        #  must really exist, and exclude the ipykernel launcher (it is the kernel's script, not the user's experiment script)
+        # 必须真实存在，且排除 ipykernel 启动器（它是内核的脚本，不是用户的实验脚本）
         if os.path.isfile(_p) and "ipykernel_launcher" not in os.path.basename(_p):
             return _p
     return ""
@@ -155,55 +151,56 @@ def _write_run_meta() -> None:
                 "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "env": {k: os.environ[k] for k in (
                     "MEDDRA_RUN_DIR", "MEDDRA_OUTPUT_ROOT", "MEDDRA_EXPERIMENT", "MEDDRA_CACHE_DIR",
-                    "MEDDRA_CSV_PATH", "MEDDRA_TEXT_MODEL_DIR", "MEDDRA_NO_RESUME") if k in os.environ},
+                    "MEDDRA_CSV_PATH", "MEDDRA_TEXT_MODEL_DIR", "MEDDRA_NO_RESUME",
+                    "MEDDRA_TRAIN_SEED", "MEDDRA_SPLIT_SEED", "MEDDRA_IND_SELECT", "MEDDRA_KEEP_EDGES") if k in os.environ},
             }, _f, ensure_ascii=False, indent=2)
     except Exception:
         pass
 
 
-_MODEL_TAG   = "IND-noGNN"  #  identity of this file (used in checkpoint file names so that different models in the same directory do not overwrite each other)
+_MODEL_TAG   = "IND-noGNN"  # 本文件身份（用于断点文件名：不同模型在同一目录不会互相覆盖）
 _SCRIPT_PATH = _safe_script_path()
 _SCRIPT_DIR  = os.path.dirname(_SCRIPT_PATH) if _SCRIPT_PATH else ""
 _CWD         = os.getcwd()
 
 if os.environ.get("MEDDRA_RUN_DIR"):
-    #  (1) output directory given explicitly: the experiment name comes from that directory name (the directory name is the only source of experiment identity)
+    # ① 显式指定输出目录：实验名取该目录名（目录名才是实验身份的唯一来源）
     RUN_DIR     = os.path.abspath(os.environ["MEDDRA_RUN_DIR"])
     EXPERIMENT  = os.environ.get("MEDDRA_EXPERIMENT") or _label(RUN_DIR)
     OUTPUT_ROOT = os.path.dirname(RUN_DIR)
 elif os.environ.get("MEDDRA_EXPERIMENT"):
-    #  (2) only the experiment name is given: output root = MEDDRA_OUTPUT_ROOT > current directory
+    # ② 只给了实验名：输出根 = MEDDRA_OUTPUT_ROOT > 当前目录
     EXPERIMENT  = os.environ["MEDDRA_EXPERIMENT"]
     _root       = (os.path.abspath(os.environ["MEDDRA_OUTPUT_ROOT"])
                    if os.environ.get("MEDDRA_OUTPUT_ROOT") else _CWD)
     RUN_DIR     = os.path.join(_root, EXPERIMENT)
 else:
-    #  (3) [default] current working directory: with no path specified, logs / results / cache all land in the "current folder"
-    #     (independent of the script name, the folder it sits in, or any arguments)
+    # ③ 【默认】当前工作目录：不指定任何路径 → 日志/结果/缓存全部落在"当前文件夹"
+    #    （与脚本叫什么名字、放在哪个文件夹、有没有参数都无关）
     RUN_DIR     = _CWD
     EXPERIMENT  = _label(RUN_DIR)
 
-OUTPUT_ROOT = os.path.dirname(RUN_DIR)     #  for log display and backward compatibility with old configurations only
-LABEL       = _label(EXPERIMENT)           #  file-name-safe tag (the experiment name may come from an environment variable and may contain illegal characters)
+OUTPUT_ROOT = os.path.dirname(RUN_DIR)     # 仅用于日志展示与旧配置兼容
+LABEL       = _label(EXPERIMENT)           # 文件名安全标签（实验名可能来自环境变量，可能含非法字符）
 CACHE_DIR   = os.environ.get("MEDDRA_CACHE_DIR") or os.path.join(
-    RUN_DIR, "meddra_cache")               #  the cache defaults to meddra_cache under the current directory (self-contained)
-#  [launcher mode] when an experiment name is given on the command line, this process only "creates the directory + copies the script + spawns a child process";
-#  it does not train itself, so it creates no run directory and writes no log file (avoiding empty directories / empty logs).
-#  the launcher is enabled only when running as a .py file: in a notebook sys.argv holds kernel arguments (including paths) and cannot serve as an experiment name
+    RUN_DIR, "meddra_cache")               # 缓存默认放当前目录下的 meddra_cache（自包含）
+# 【启动器模式】命令行里带了实验名 → 本进程只负责"建目录 + 复制脚本 + 派生子进程"，
+# 自己不训练，因此不创建运行目录、也不写日志文件（避免留下空目录/空日志）。
+# 启动器只在"以 .py 文件运行"时启用：notebook 里 sys.argv 是内核参数（含路径），不能当实验名
 _CLI_NAMES = [a for a in sys.argv[1:]
               if _SCRIPT_PATH and a and not a.startswith("-")
               and "/" not in a and "\\" not in a and "." not in a
-              and not a.isdigit()]        #  exclude numbers such as in `--jobs 2`: do not mistake the job count for an experiment name
+              and not a.isdigit()]        # 排除 `--jobs 2` 里的数字：别把作业数当成实验名
 _LAUNCH_MODE = bool(_CLI_NAMES)
 
 if not _LAUNCH_MODE:
     os.makedirs(RUN_DIR, exist_ok=True)
-    _write_run_meta()      #  even a direct run leaves a provenance record (script path / md5 / arguments / resolved directories)
-#  the cache directory is created **only when training actually starts** (see run_full_training): this way, a wrong argument (e.g. only `--jobs 2`
-#  without an experiment name) exits with an error and leaves no empty directory on disk; the parent process in launcher mode creates no directory either.
+    _write_run_meta()      # 直接运行也留一份溯源记录（脚本路径 / md5 / 参数 / 解析出的目录）
+# 缓存目录**延迟到真正训练时**再创建（见 run_full_training）：这样参数写错（如只写 `--jobs 2`
+# 没给实验名）在报错退出时不会在磁盘上留下任何空目录；启动器模式的父进程也不建任何目录。
 
-#  [resume training] the resume file is placed in this run's output directory; its name carries the model tag
-#  (when two models are occasionally run in the same directory, their checkpoints do not overwrite each other)
+# 【断点续训】续训文件放在本次输出目录；文件名带模型标签
+# （同一目录偶尔跑两个模型时，各自的断点不会互相覆盖）
 RESUME_FILE = os.path.join(RUN_DIR, f"resume_{_MODEL_TAG}.pt")
 
 
@@ -227,20 +224,20 @@ def _resume_paths(cfg=None):
     return _default, _default
 
 
-#  set up logging: console + a file in this experiment's directory (written to both)
-#  [pitfalls]
-#    1) handlers=[...] is required: using only basicConfig(filename=...) makes FileHandler replace the default StreamHandler,
-#       and the console stops printing;
-#    2) force=True: libraries such as transformers/torch_geometric may already have attached a handler to root, in which case basicConfig
-#       fails silently (no error, and no file is created);
-#    3) encoding='utf-8': Windows defaults to GBK, so Chinese characters / emoji in logs raise UnicodeEncodeError;
-#    4) the file name contains the experiment name + a timestamp: it distinguishes experiments and prevents a re-run from overwriting old logs;
-#    5) the tqdm progress bar bypasses logging and writes straight to stderr, reaching the console only and not the file; print / exception tracebacks are likewise not captured by FileHandler.
+# 设置日志：控制台 + 本实验目录下的文件（双写）
+# 【坑位说明】
+#   1) 必须用 handlers=[...]：只写 basicConfig(filename=...) 会让 FileHandler 取代默认 StreamHandler，
+#      控制台将不再输出；
+#   2) force=True：transformers/torch_geometric 等库可能已先给 root 挂 handler，此时 basicConfig
+#      会静默失效（不报错、也不生成文件）；
+#   3) encoding='utf-8'：Windows 默认 GBK，日志中的中文/emoji 会 UnicodeEncodeError；
+#   4) 文件名含实验名 + 时间戳：既区分实验，也避免同实验重跑覆盖旧日志；
+#   5) tqdm 进度条绕过 logging 直写 stderr，只进控制台、不进文件；print/异常 traceback 同样不受 FileHandler 捕获。
 LOG_FILE = os.path.join(RUN_DIR, f"run_{_MODEL_TAG}_{LABEL}_{time.strftime('%Y%m%d_%H%M%S')}.log")
-_handlers = [logging.StreamHandler()]                       #  console (default stderr, consistent with the previous behaviour)
+_handlers = [logging.StreamHandler()]                       # 控制台（默认 stderr，与原先行为一致）
 if not _LAUNCH_MODE:
     _handlers.append(
-        logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')   #  log file in this experiment's directory
+        logging.FileHandler(LOG_FILE, mode='w', encoding='utf-8')   # 本实验目录下的日志文件
     )
 logging.basicConfig(
     level=logging.INFO,
@@ -257,14 +254,14 @@ logger.info(
 warnings.filterwarnings("ignore")
 
 # =============================================================================
-#  hierarchy / label construction version -- single source of truth
+# 层级/标签构建版本 —— 单一来源（single source of truth）
 # -----------------------------------------------------------------------------
-#  this constant is used in three places:
-#    (1) the cache key (isolating graph/feature caches of different versions);
-#    (2) the version marker in cache metadata and in the checkpoint;
-#    (3) "version difference detection" at load time -- a mismatch marks the cache/checkpoint invalid and triggers a rebuild.
-#  [rule] whenever a change affects hierarchy_map / node_soc_map / _primary_parent / the graph structure or edges,
-#         the number must be bumped; otherwise the old cache is silently reused and labels / primary parents remain on the old convention.
+# 该常量同时用于三处：
+#   ① 缓存键（隔离不同版本的图/特征缓存）；
+#   ② 缓存元数据与 checkpoint 中的版本标记；
+#   ③ 加载时的「版本差异检测」——不一致即判定缓存/断点失效并重建。
+# 【规则】只要改动会影响 hierarchy_map / node_soc_map / _primary_parent / 图结构或边，
+#        必须升号；否则旧缓存会被静默复用，标签与主父停留在旧口径。
 # 说明：各训练脚本的缓存键保留自身后缀（-SAGE 无后缀 / -GAT / -noGNN）以避免互相覆盖。
 # =============================================================================
 BUILD_HIERARCHY_VERSION = "v7.2"
@@ -346,6 +343,62 @@ if INDUCTIVE_KEEP_EDGES:
     )
 
 
+# =============================================================================
+# 【2026-10-29 审稿补充】归纳式模型选择集协议 + 训练种子解耦
+# -----------------------------------------------------------------------------
+# 第一轮（默认 holdout）：验证集 = 留出集 → 早停与选权重都在留出集上完成，报告的
+#   Held-out Acc 是"在被评估集合上挑出的最好一轮"，带有选择乐观偏差。
+# disjoint（环境变量 MEDDRA_IND_SELECT=disjoint）：
+#   · 模型选择集 = 从**非留出**节点按 SOC 分层抽取 val_ratio（划分种子 split_seed，默认 42）；
+#   · 留出集只在选定权重上评估一次 → holdout_metrics_<模型标签>.json /
+#     holdout_predictions_<模型标签>.json；
+#   · 留出集本身不变（仍由 INDUCTIVE_SEED=42 选定），可与第一轮逐成员核对。
+# 训练种子（MEDDRA_TRAIN_SEED）只影响模型初始化、逐轮打乱与 dropout；
+# 划分种子（MEDDRA_SPLIT_SEED）只影响模型选择集的抽样。二者都不设时与第一轮逐位一致。
+# =============================================================================
+_IND_SELECT_RAW = str(os.environ.get("MEDDRA_IND_SELECT", "holdout") or "holdout").strip().lower()
+if _IND_SELECT_RAW not in ("holdout", "disjoint"):
+    raise SystemExit("MEDDRA_IND_SELECT 只能是 holdout 或 disjoint，当前为 %r" % _IND_SELECT_RAW)
+INDUCTIVE_SELECT_DISJOINT = _IND_SELECT_RAW == "disjoint"
+
+
+def _inductive_disjoint_split(all_nodes, all_soc_labels, holdout, val_ratio, split_seed):
+    """disjoint 协议的三分：返回 (train_idx, select_idx, holdout_idx)。
+
+    · holdout_idx：code ∈ 留出集的全部节点实例（与第一轮的验证集逐个相同）；
+    · select_idx ：非留出节点内按 SOC 分层抽样（与转导式 val 的抽样规则相同：
+                   每个 SOC 取 max(1, min(int(n*val_ratio), n//2))，n≤2 时取第 1 个）；
+    · train_idx  ：其余非留出节点（含无 SOC 标签的兜底节点，与第一轮一致）。
+    纯函数，不依赖 torch，便于离线单测。
+    """
+    holdout = set(int(c) for c in holdout)
+    holdout_idx = [i for i, c in enumerate(all_nodes) if int(c) in holdout]
+    by_soc = defaultdict(list)
+    unlabeled = []
+    for i, (c, lab) in enumerate(zip(all_nodes, all_soc_labels)):
+        if int(c) in holdout:
+            continue
+        if lab >= 0:
+            by_soc[lab].append(i)
+        else:
+            unlabeled.append(i)
+    rng = np.random.RandomState(int(split_seed))
+    train_idx, select_idx = [], []
+    for lab in sorted(by_soc):
+        indices = by_soc[lab]
+        n_val = max(1, min(int(len(indices) * val_ratio), len(indices) // 2))
+        if len(indices) <= 2:
+            val_sel, train_sel = list(indices[:1]), list(indices[1:])
+        else:
+            val_sel = [int(x) for x in rng.choice(indices, n_val, replace=False)]
+            _vs = set(val_sel)
+            train_sel = [i for i in indices if i not in _vs]
+        select_idx.extend(val_sel)
+        train_idx.extend(train_sel)
+    train_idx.extend(unlabeled)
+    return sorted(train_idx), sorted(select_idx), holdout_idx
+
+
 def select_inductive_holdout(processor, ratio: float = INDUCTIVE_HLT_RATIO,
                              seed: int = INDUCTIVE_SEED) -> Set[int]:
     """按固定种子挑选若干**整棵 HLT 子树**作为留出集，返回被留出的节点 code 集合。"""
@@ -387,24 +440,38 @@ class TrainingConfig:
     weight_decay: float = 5e-5
     warmup_epochs: int = 3
     val_ratio: float = 0.1
-    random_state: int = 42  #  hard-coded
-    #  [resume training] enabled by default: if resume_<model tag>.pt exists in the run directory (and configuration / version / graph size match),
-    #    training continues automatically from the next epoch; the file is deleted automatically once training ends normally (including early stopping / NaN exit).
-    #    to disable: resume=False or set the environment variable MEDDRA_NO_RESUME=1.
+    random_state: int = 42  # 固定写死
+    # 【2026-10-29 多 seed】划分种子与训练种子解耦（默认 None = 沿用 random_state，与第一轮逐位一致）：
+    #   · split_seed —— 只在 disjoint 协议下决定模型选择集的抽样；
+    #   · train_seed —— 决定模型初始化、逐轮打乱与 dropout（`train_seed*1000 + epoch` 逐轮播种）。
+    #   亦可用环境变量覆盖：MEDDRA_SPLIT_SEED / MEDDRA_TRAIN_SEED。
+    split_seed: Optional[int] = None
+    train_seed: Optional[int] = None
+
+    @property
+    def _split_seed(self) -> int:
+        return self.random_state if self.split_seed is None else int(self.split_seed)
+
+    @property
+    def _train_seed(self) -> int:
+        return self.random_state if self.train_seed is None else int(self.train_seed)
+    # 【断点续训】默认开启：若运行目录下存在 resume_<模型标签>.pt（且配置/版本/图规模一致），
+    #   自动从下一轮继续；训练正常结束（含早停/NaN 退出）后该文件会被自动删除。
+    #   关闭方式：resume=False 或设环境变量 MEDDRA_NO_RESUME=1。
     resume: bool = True
-    resume_every: int = 10  #  how often to write the resume file (0 = never write to disk, only save at the end)
-    #  [resume training · read source] empty = use resume_<model tag>.pt in this experiment's directory (previous behaviour);
-    #    a path = read the checkpoint from that file (**read-only**: writing and the deletion at the end still apply to the default path,
-    #    that file is neither overwritten nor deleted; it must exist, otherwise a warning is issued and the default is used).
-    #    the environment variable MEDDRA_RESUME_FILE takes precedence over this field.
+    resume_every: int = 10  # 每多少轮落一次续训文件（0 = 不落盘，仅关闭保存）
+    # 【断点续训·读取来源】留空 = 用本实验目录下的 resume_<模型标签>.pt（原有逻辑）；
+    #   填写路径 = 从该文件读取断点（**只读**：写入与结束时的删除仍作用于默认路径，
+    #   该文件不会被覆盖或删除；须已存在，否则告警并回落默认）。
+    #   环境变量 MEDDRA_RESUME_FILE 优先于本字段。
     resume_file: str = ""
 
 @dataclass
 class DataConfig:
-    meddra_csv_path: str = "/path/to/MEDDRA_DATA_29_0.csv"
+    meddra_csv_path: str = "/kaggle/input/datasets/jiuqianqicc/meddra-29-0/MEDDRA_DATA_29_0.csv"
     cache_dir: str = "./meddra_cache"
-    #  [new] local directory of the text encoder (PubMedBERT/SapBERT/CODER), default '' (empty).
-    #    non-empty: local first, offline loading (local_files_only=True, no network access); if the directory has no weights yet,
+    # 【新增】文本编码器（PubMedBERT/SapBERT/CODER）的本地目录，默认 ''（空）。
+    #   非空：本地优先、离线加载（local_files_only=True，零联网）；若该目录尚无权重，
     #         则从 HF Hub 下载一次并 save_pretrained 落盘到该目录，之后每次运行都读本地；
     #   为空：保持原行为（按 HF Hub 名称加载，依赖 HuggingFace 自身缓存）。
     #   Kaggle 用法：把已下载好的模型目录做成 Dataset，挂载后将其路径填在此处即可。
@@ -481,15 +548,15 @@ class GraphCacheManager:
     def _save_cache_info(self) -> None:
         info_path = os.path.join(self.cache_dir, "cache_info.json")
         try:
-            #  [concurrency-safe] write a temporary file first and then replace atomically: writing directly would truncate files when several processes share the same cache_dir
-            #  (the only consequence would be rebuilding the graph once more, but avoid it if possible; the file name carries the PID so that two processes do not clobber each other's temporary file)
+            # 【并发安全】先写临时文件再原子替换：多个进程共享同一 cache_dir 时直接写会互相截断
+            # （后果只是"多重建一次图"，但能避免就避免；文件名带 PID 防两个进程互相踩临时文件）
             _tmp_info = f"{info_path}.tmp{os.getpid()}"
             with open(_tmp_info, "w", encoding="utf-8") as f:
                 json.dump(self.cache_info, f, indent=2, ensure_ascii=False)
             try:
                 os.replace(_tmp_info, info_path)
             finally:
-                #  If the replacement fails (on Windows it fails when another process holds the target open; POSIX does not), leave no garbage behind
+                # 替换失败（Windows 下别的进程正打开目标文件时会失败；POSIX 不会）时不留下垃圾
                 if os.path.exists(_tmp_info):
                     try:
                         os.remove(_tmp_info)
@@ -526,10 +593,10 @@ class GraphCacheManager:
         meta_path = os.path.join(self.cache_dir, f"{key}_metadata.pkl")
         if not (os.path.exists(graph_path) and os.path.exists(meta_path)):
             return False
-        #  ---- [version difference detection] ----
-        #  The version number in the file name can only "isolate": it cannot detect "changed the hierarchy/label logic but forgot to bump the number".
-        #  Here the version recorded in the cache metadata is read and compared; a mismatch marks the cache invalid (returns False),
-        #  and the caller takes the rebuild path, avoiding silent reuse of old labels / old primary-parent conventions.
+        # ---- 【版本差异检测】----
+        # 文件名里的版本号只能「隔离」，无法发现「改了层级/标签逻辑却忘记升号」。
+        # 这里读取缓存元数据中记录的版本并比较：不一致即判定缓存失效（返回 False），
+        # 由调用方走重建路径，避免静默复用旧标签／旧主父口径。
         try:
             with open(meta_path, "rb") as f:
                 cached_meta = pickle.load(f)
@@ -598,7 +665,7 @@ class GraphCacheManager:
                 serializable_history[k] = [float(x) for x in v]
             else:
                 serializable_history[k] = v
-        #  [one folder per experiment] if out_dir is non-empty, write to this experiment's directory; if empty, fall back to the cache directory (backward compatible)
+        # 【每实验一个文件夹】out_dir 非空 → 写到本实验目录；为空则退回缓存目录（兼容旧行为）
         target_dir = out_dir or self.cache_dir
         os.makedirs(target_dir, exist_ok=True)
         # 【v7.1-noGNN】加 tag 后缀
@@ -628,7 +695,7 @@ class GraphCacheManager:
             data = torch.load(graph_path, map_location="cpu", weights_only=False)
             with open(meta_path, "rb") as f:
                 metadata = pickle.load(f)
-            #  [version difference detection] defensive second check (prevents calling this function directly and bypassing has_cache)
+            # 【版本差异检测】防御性二次校验（防止绕过 has_cache 直接调用本函数）
             cached_ver = metadata.get("build_hierarchy_version") if isinstance(metadata, dict) else None
             if cached_ver != BUILD_HIERARCHY_VERSION:
                 logger.warning(
@@ -699,7 +766,7 @@ class GraphCacheManager:
         feat_path = os.path.join(self.cache_dir, f"{key}_{feature_model}_features.pt")
         return os.path.exists(feat_path)
 
-    #  [reserved / not wired] cache-list query interface: not called by any of the three current training flows (reserved for future incremental training).
+    # 【预留·未接线】缓存列表查询接口：当前三个训练流程均未调用（仅为后续增量训练预留）。
     def list_cache(self) -> None:
         if not self.cache_info:
             logger.info("暂无缓存")
@@ -794,7 +861,7 @@ class HeteroMedDRADataProcessor:
             "node_indices": self.node_indices,
             "edge_types": self.edge_types,
             "primary_parent": self._primary_parent,        # 【新增】主父映射（与 SAGE/GAT 对齐）
-            "build_hierarchy_version": BUILD_HIERARCHY_VERSION,  #  [version difference detection] single source of the version number
+            "build_hierarchy_version": BUILD_HIERARCHY_VERSION,  # 【版本差异检测】单一来源版本号
             "build_time": time.strftime("%Y-%m-%d %H:%M:%S"),
             "build_duration": time.time() - start_time,
         }
@@ -890,12 +957,12 @@ class HeteroMedDRADataProcessor:
         """
         logger.info("构建 MedDRA 层级结构（DAG）...")
 
-        #  1. Create a LabelEncoder for each level
+        # 1. 为每个层级创建 LabelEncoder
         for level in self.level_names:
             col = f"{level}_CODE"
             if col in self.df.columns:
                 codes = self.df[col].dropna().astype(int).unique().tolist()
-                codes = sorted(codes)  #  Align with the order of the LabelEncoder
+                codes = sorted(codes)  # 与 LabelEncoder 的顺序对齐
                 enc = LabelEncoder()
                 enc.fit(codes)
                 self.level_encoders[level] = enc
@@ -903,7 +970,7 @@ class HeteroMedDRADataProcessor:
                 self.num_nodes_by_level[level] = len(codes)
                 logger.info(f"  {level}: {len(codes)} 个节点")
 
-        #  2. Iterate over all rows and establish parent-child relations (without distinguishing Y/N, preserving DAG completeness)
+        # 2. 遍历所有行，建立父子关系（不区分 Y/N，保留 DAG 完整性）
         self.hierarchy_map = {}
         self.name_map = {}
         self.node_soc_map = {}
@@ -919,13 +986,13 @@ class HeteroMedDRADataProcessor:
                 hlt = self._safe_int(row, "HLT_CODE")
                 hlgt = self._safe_int(row, "HLGT_CODE")
                 soc = self._safe_int(row, "SOC_CODE")
-                pt_soc = self._safe_int(row, "PT_SOC_CODE")  #  * official primary SOC of the PT
+                pt_soc = self._safe_int(row, "PT_SOC_CODE")  # ★ 官方 PT 主 SOC
 
-                #  [key] record the official SOC of the PT from PT_SOC_CODE (setdefault keeps the first value; it should be unique per PT)
+                # 【关键】用 PT_SOC_CODE 记录 PT 的官方 SOC（setdefault 保留首次，同一 PT 应唯一）
                 if pt is not None and pt_soc is not None:
                     self.node_soc_map.setdefault(pt, pt_soc)
 
-                #  Primary-parent record (used only for contrastive learning, not for SOC labels)
+                # 主父记录（仅用于对比学习，不用来打 SOC 标签）
                 primary_flag = str(row.get("PRIMARY_SOC_FG", "N")).strip().upper()
                 if primary_flag == "Y":
                     if llt is not None and pt is not None:
@@ -940,13 +1007,13 @@ class HeteroMedDRADataProcessor:
                 else:
                     non_primary_count += 1
 
-                #  Parent-child relations (all rows, preserving the DAG)
+                # 父子关系（所有行，保留 DAG）
                 self._add_relationship(llt, pt, "LLT")
                 self._add_relationship(pt, hlt, "PT")
                 self._add_relationship(hlt, hlgt, "HLT")
                 self._add_relationship(hlgt, soc, "HLGT")
 
-                #  name
+                # 名称
                 self._store_names(row, llt, "LLT")
                 self._store_names(row, pt, "PT")
                 self._store_names(row, hlt, "HLT")
@@ -958,7 +1025,7 @@ class HeteroMedDRADataProcessor:
 
         logger.info(f"主 SOC 行数: {primary_count}, 非主 SOC 行数: {non_primary_count}")
 
-        #  3. Assemble the global node list
+        # 3. 整理全局节点列表
         nodes = sorted(list(self.hierarchy_map.keys()))
         self.node_codes = nodes
         self.node_levels = [self.hierarchy_map[n]["level"] for n in nodes]
@@ -972,11 +1039,11 @@ class HeteroMedDRADataProcessor:
             ]
         logger.info(f"层级结构构建完成: 总节点数 {self.num_all_nodes}")
 
-        #  4. PT already obtained its SOC label from PT_SOC_CODE
+        # 4. PT 已从 PT_SOC_CODE 获得 SOC 标签
         pt_with_label = sum(1 for pt in self.level_nodes.get("PT", []) if pt in self.node_soc_map)
         logger.info(f"PT 官方 SOC 标签: {pt_with_label}/{len(self.level_nodes.get('PT', []))}")
 
-        #  5. LLT inherits the SOC of its parent PT
+        # 5. LLT 继承父 PT 的 SOC
         llt_inherited = 0
         for llt_code in self.level_nodes.get("LLT", []):
             parents = self.hierarchy_map.get(llt_code, {}).get("parent", [])
@@ -985,28 +1052,28 @@ class HeteroMedDRADataProcessor:
                 llt_inherited += 1
         logger.info(f"LLT SOC 标签（继承父 PT）: {llt_inherited}/{len(self.level_nodes.get('LLT', []))}")
 
-        #  6. HLT is aggregated by voting over child PTs
+        # 6. HLT 从子 PT 投票聚合
         for hlt_code in self.level_nodes.get("HLT", []):
             children_pt = self.hierarchy_map.get(hlt_code, {}).get("children", [])
             votes = [self.node_soc_map[c] for c in children_pt if c in self.node_soc_map]
             if votes:
                 self.node_soc_map[hlt_code] = Counter(votes).most_common(1)[0][0]
 
-        #  7. HLGT is aggregated by voting over child HLTs
+        # 7. HLGT 从子 HLT 投票聚合
         for hlgt_code in self.level_nodes.get("HLGT", []):
             children_hlt = self.hierarchy_map.get(hlgt_code, {}).get("children", [])
             votes = [self.node_soc_map[c] for c in children_hlt if c in self.node_soc_map]
             if votes:
                 self.node_soc_map[hlgt_code] = Counter(votes).most_common(1)[0][0]
 
-        #  8. SOC label coverage
+        # 8. SOC 标签覆盖率
         non_soc_nodes = [n for n in self.node_codes
                         if self.hierarchy_map[n]["level"] != "SOC"]
         labeled_nodes = [n for n in non_soc_nodes if n in self.node_soc_map]
         logger.info(f"SOC 标签覆盖率: {len(labeled_nodes)}/{len(non_soc_nodes)} "
                     f"({len(labeled_nodes)/len(non_soc_nodes)*100:.2f}%)")
 
-        #  9. SOC distribution diagnostics (key)
+        # 9. SOC 分布诊断（关键）
         soc_counts = Counter(self.node_soc_map.values())
         total = sum(soc_counts.values())
         logger.info("=" * 60)
@@ -1016,16 +1083,16 @@ class HeteroMedDRADataProcessor:
         logger.info(f"最大 SOC 占比: {soc_counts.most_common(1)[0][1] / total * 100:.1f}%")
         logger.info("=" * 60)
 
-        #  10. Primary-parent coverage
+        # 10. 主父覆盖率
         has_primary = [n for n in non_soc_nodes if n in self._primary_parent]
         logger.info(f"主父覆盖率: {len(has_primary)}/{len(non_soc_nodes)} "
                     f"({len(has_primary)/len(non_soc_nodes)*100:.2f}%)")
 
         return self.hierarchy_map, self.name_map
 
-    #  [deprecated / DEPRECATED] label construction now uses the v7.2 hierarchical strategy (PT uses the official PT_SOC_CODE,
-    #  LLT inherits from its parent PT, HLT/HLGT are aggregated by voting over children); this method is no longer called
-    #  in any of the three training scripts after v7.2 and is kept only for backward compatibility (see the archived script meddra/old/ for its call sites).
+    # 【已废弃 / DEPRECATED】当前标签构建已改用 v7.2 分层策略（PT 用官方 PT_SOC_CODE、
+    # LLT 继承父 PT、HLT/HLGT 由子节点投票聚合），本方法在 v7.2 之后的三个训练脚本中
+    # 均不再被调用，仅为兼容旧版代码保留（其调用点见归档脚本 meddra/old/）。
     def _infer_missing_soc_labels(self) -> None:
         """
         [已废弃·无调用] 为未获得 SOC 标签的节点（HLT/HLGT）从父节点继承 SOC。
@@ -1073,8 +1140,8 @@ class HeteroMedDRADataProcessor:
         val = row.get(col)
         return int(val) if pd.notna(val) else None
 
-    #  [deprecated / DEPRECATED] since v7.2 the SOC mapping is written directly into self.node_soc_map by build_hierarchy;
-    #  this method is no longer called in any of the three training scripts (see the archived script meddra/old/).
+    # 【已废弃 / DEPRECATED】v7.2 起 SOC 映射由 build_hierarchy 直接写入 self.node_soc_map，
+    # 本方法在三个训练脚本中均不再被调用（调用点见归档脚本 meddra/old/）。
     def _set_node_soc_code(self, node_code, soc_code, overwrite=False):
         """
         [已废弃·无调用] 默认保留首次赋值，仅在 overwrite=True 时覆盖。
@@ -1187,12 +1254,12 @@ class HeteroMedDRADataProcessor:
     def get_all_node_codes(self) -> Set[int]:
         return set(self.node_codes)
 
-    #  [reserved / not wired] new-vs-old node difference detection: not called by the current training flow (reserved for future incremental training).
+    # 【预留·未接线】新旧版本节点差集检测：当前训练流程未调用（仅为后续增量训练预留）。
     def get_new_nodes(self, old_processor: "HeteroMedDRADataProcessor") -> List[int]:
         old_codes = old_processor.get_all_node_codes()
         return [n for n in self.node_codes if n not in old_codes]
 
-    #  [reserved / not wired] new-vs-old node difference detection: not called by the current training flow (reserved for future incremental training).
+    # 【预留·未接线】新旧版本节点差集检测：当前训练流程未调用（仅为后续增量训练预留）。
     def get_removed_nodes(self, old_processor: "HeteroMedDRADataProcessor") -> List[int]:
         new_codes = self.get_all_node_codes()
         return [n for n in old_processor.node_codes if n not in new_codes]
@@ -1291,6 +1358,7 @@ class HeteroMedDRATrainer:
         self.all_soc_labels = []
         self.train_indices = []
         self.val_indices = []
+        self.test_indices = []   # disjoint 协议下 = 留出集（只在选定权重上评估一次）
         self.num_train_nodes = 0
         # 【归纳式】留出集（节点 code 集合）；空集合表示转导式（本文件恒非空）
         self.inductive_holdout: Set[int] = set(inductive_holdout or ())
@@ -1332,18 +1400,18 @@ class HeteroMedDRATrainer:
         # 【新增】早停 / 模型选择配置（可在训练前覆盖）
         self.es_primary_metric = "acc"        # 主判据："acc"(默认, 实测信噪比更高) 或 "macro_f1"
         self.es_min_epochs = 60               # 早停保护期：前 N 轮只记录、不累计 patience（≈计划轮数的30%）
-        self.es_loss_min_delta = 1e-4         #  Threshold for deciding that the validation loss is "still decreasing"
-        self.best_val_loss = float("inf")     #  Best validation loss so far (used for the "still learning" decision)
+        self.es_loss_min_delta = 1e-4         # 验证损失“仍在下降”的判定阈值
+        self.best_val_loss = float("inf")     # 历史最优验证损失（用于“仍在学习”判定）
         self.es_min_delta = 0.001             # 主指标“严格提升”阈值（实测校准：0.002 会在平台期误判无进展）
         self.es_tolerance = 0.005             # 容差带：主指标不落后最优超过该值即视为“同水平”
-        self.es_gap_eps = 1e-4                #  Minimum gap improvement required to select a better model inside the tolerance band
+        self.es_gap_eps = 1e-4                # 容差带内择优所需的最小 gap 提升
         self.collapse_weight = 3              # 塌缩轮等价计为几轮无进展（替代独立的塌缩停止阈值）
         self.collapse_eps = 1e-3              # intra 相对参考值上升的最小量（抑制噪声）
         self.collapse_gap_ratio = 0.1         # gap 相对参考值的最小下降比例（10%）
         self._collapse_ref_intra = None       # 参考 intra（随“选中最佳权重”更新）
         self._collapse_ref_gap = None         # 参考 gap（随“选中最佳权重”更新）
-        self.best_primary = 0.0               #  Historical best of the primary criterion
-        self.best_gap = 0.0                   #  gap_average of the selected model
+        self.best_primary = 0.0               # 主判据历史最优
+        self.best_gap = 0.0                   # 选中模型的 gap_average
 
     def _prepare_training_data(self) -> None:
         """按 SOC 分层采样划分训练/验证集（使用 RandomState 保证可复现）"""
@@ -1381,7 +1449,7 @@ class HeteroMedDRATrainer:
 
         train_idx, val_idx = [], []
         # 【关键修改】使用独立的 RandomState，与 SAGE 版划分方式完全一致
-        rng = np.random.RandomState(self.training_config.random_state)
+        rng = np.random.RandomState(self.training_config._split_seed)   # 划分种子（未设时 = random_state）
 
         for lab, indices in soc_to_indices.items():
             n_val = max(1, min(int(len(indices) * self.training_config.val_ratio),
@@ -1396,23 +1464,42 @@ class HeteroMedDRATrainer:
             train_idx.extend(train_sel)
 
         # ---- 【归纳式】覆盖上面的分层抽样：留出子树 → 验证集，其余 → 训练集 ----
+        test_idx = []   # 第一轮（holdout 协议）不设独立留出评估
         if INDUCTIVE_MODE:
             _ho = self.inductive_holdout
             if not _ho:
                 raise RuntimeError("归纳式模式：留出集为空（检查 select_inductive_holdout 的调用）")
-            train_idx = [i for i, c in enumerate(self.all_nodes) if c not in _ho]
-            val_idx = [i for i, c in enumerate(self.all_nodes) if c in _ho]
-            if not train_idx or not val_idx:
-                raise RuntimeError(
-                    f"归纳式模式：划分异常（训练 {len(train_idx)} / 验证 {len(val_idx)}）"
+            if INDUCTIVE_SELECT_DISJOINT:
+                # 【2026-10-29 disjoint】模型选择集取自非留出节点；留出集只在选定权重上评估一次
+                train_idx, val_idx, test_idx = _inductive_disjoint_split(
+                    self.all_nodes, self.all_soc_labels, _ho,
+                    self.training_config.val_ratio, self.training_config._split_seed)
+                if not train_idx or not val_idx or not test_idx:
+                    raise RuntimeError(
+                        f"归纳式 disjoint：划分异常（训练 {len(train_idx)} / 选择 {len(val_idx)} / 留出 {len(test_idx)}）"
+                    )
+                if set(val_idx) & set(test_idx) or set(train_idx) & set(test_idx):
+                    raise RuntimeError("归纳式 disjoint：模型选择集或训练集与留出集重叠")
+                logger.info(
+                    f"【归纳式·disjoint】留出 {len(test_idx):,} 个节点实例（只在选定权重上评估一次）；"
+                    f"模型选择集 {len(val_idx):,}（非留出节点按 SOC 分层，split_seed="
+                    f"{self.training_config._split_seed}）；训练集 {len(train_idx):,}"
                 )
-            logger.info(
-                f"【归纳式】留出整棵 HLT 子树 → 验证集 {len(val_idx):,} 个留出节点 / "
-                f"训练集 {len(train_idx):,} 个节点（不再按 SOC 分层抽样）"
-            )
+            else:
+                train_idx = [i for i, c in enumerate(self.all_nodes) if c not in _ho]
+                val_idx = [i for i, c in enumerate(self.all_nodes) if c in _ho]
+                if not train_idx or not val_idx:
+                    raise RuntimeError(
+                        f"归纳式模式：划分异常（训练 {len(train_idx)} / 验证 {len(val_idx)}）"
+                    )
+                logger.info(
+                    f"【归纳式】留出整棵 HLT 子树 → 验证集 {len(val_idx):,} 个留出节点 / "
+                    f"训练集 {len(train_idx):,} 个节点（不再按 SOC 分层抽样）"
+                )
 
         self.train_indices = train_idx
         self.val_indices = val_idx
+        self.test_indices = list(test_idx)
         logger.info(f"训练集: {len(train_idx):,} 个节点")
         logger.info(f"验证集: {len(val_idx):,} 个节点")
         logger.info(f"验证集比例: {len(val_idx) / self.num_train_nodes * 100:.1f}%")
@@ -1719,7 +1806,7 @@ class HeteroMedDRATrainer:
         return pp in self._get_train_code_set()
 
     # ============= 修改 evaluate 方法，返回相似度字典 =============
-    def evaluate(self) -> Tuple[float, float, float, Dict, Dict]:
+    def evaluate(self, indices: Optional[List[int]] = None) -> Tuple[float, float, float, Dict, Dict]:
         """
         在验证集上评估模型。
         
@@ -1736,8 +1823,9 @@ class HeteroMedDRATrainer:
             confusion_matrix,
         )
         
+        _eval_indices = self.val_indices if indices is None else indices   # 默认验证集；传留出集即最终评估
         self.model.eval()
-        if len(self.val_indices) == 0:
+        if len(_eval_indices) == 0:
             return 0.0, 0.0, 0.0, {}, {}
         
         x_dict = {nt: self.data[nt].x for nt in self.node_types
@@ -1761,8 +1849,8 @@ class HeteroMedDRATrainer:
         diag_correct_lv = {lv: {"in": 0, "out": 0} for lv in self._DIAG_LEVELS}
         diag_total_lv = {lv: {"in": 0, "out": 0} for lv in self._DIAG_LEVELS}
         
-        for i in range(0, len(self.val_indices), batch_size):
-            batch_idx = self.val_indices[i:i + batch_size]
+        for i in range(0, len(_eval_indices), batch_size):
+            batch_idx = _eval_indices[i:i + batch_size]
             batch_nodes = [self.all_nodes[idx] for idx in batch_idx]
             batch_socs = [self.all_soc_labels[idx] for idx in batch_idx]
             batch_types = [self.all_node_types[idx] for idx in batch_idx]
@@ -1878,6 +1966,36 @@ class HeteroMedDRATrainer:
     
     # ============= 训练主循环（修改，记录相似度） =============
 
+    def save_holdout_predictions(self, tag: str) -> None:
+        """【2026-10-29 disjoint】留出集逐节点对错 → holdout_predictions_<tag>.json（离线规则对照用）。"""
+        if not self.test_indices or not self.soc_list:
+            return
+        self.model.eval()
+        x_dict = {nt: self.data[nt].x for nt in self.node_types if hasattr(self.data[nt], "x")}
+        with torch.no_grad():
+            _, soc_logits = self.model(x_dict)
+        rows = []
+        for idx in self.test_indices:
+            node = self.all_nodes[idx]
+            ntype = self.all_node_types[idx]
+            truth = self.all_soc_labels[idx]
+            if truth < 0 or ntype not in soc_logits:
+                continue
+            local = self._get_node_index(node, ntype)
+            if local is None:
+                continue
+            pred = int(soc_logits[ntype][local].argmax(dim=0).item())
+            rows.append({
+                "node_code": int(node),
+                "level": ntype,
+                "true_soc_code": self.soc_list[truth] if truth < len(self.soc_list) else None,
+                "pred_soc_code": self.soc_list[pred] if pred < len(self.soc_list) else None,
+                "correct": bool(pred == truth),
+            })
+        with open(f"holdout_predictions_{tag}.json", "w", encoding="utf-8") as _f:
+            json.dump(rows, _f, ensure_ascii=False, indent=1)
+        logger.info("📄 留出集逐节点预测已保存: holdout_predictions_%s.json（%d 条）", tag, len(rows))
+
     def train(self, verbose: bool = True, train_epoch_log: int = 1) -> Tuple[HeteroMedDRAEncoder, Dict]:
         cfg = self.training_config
         optimizer = torch.optim.AdamW(
@@ -1898,12 +2016,12 @@ class HeteroMedDRATrainer:
         # ✅ 模型选择：主判据为 self.es_primary_metric（默认 "acc" = 验证准确率），
         #    容差 self.es_tolerance 内优先选 gap_average 更大的模型；并启用塌缩护栏。
         self.best_val_acc = 0.0         # 历史最高准确率（仅记录/报告）
-        self.best_primary = 0.0         #  Historical best of the primary criterion
-        self.best_gap = 0.0             #  gap_average of the selected model
+        self.best_primary = 0.0         # 主判据历史最优
+        self.best_gap = 0.0             # 选中模型的 gap_average
         self.best_epoch = 0
-        self.best_macro_f1 = 0.0        #  macro_f1 of the selected model
+        self.best_macro_f1 = 0.0        # 选中模型的 macro_f1
         patience_counter = 0            # 无严格提升的连续轮数
-        self.best_val_loss = float("inf")   #  Best validation loss so far (used for the "still learning" decision)
+        self.best_val_loss = float("inf")   # 历史最优验证损失（用于“仍在学习”判定）
         collapse_counter = 0            # 连续塌缩预警轮数（仅用于日志/报告）
         collapse_weight_total = 0       # 自上次“严格提升”以来累计计入 patience 的塌缩加权
         self._collapse_ref_intra = None # 塌缩判定参考 intra（随选中最佳权重更新）
@@ -2172,6 +2290,40 @@ class HeteroMedDRATrainer:
             self.model.load_state_dict(self.best_model_state)
             self.model.to(DEVICE)
 
+        # ---- 【2026-10-29 disjoint】留出集只在选定权重上评估一次（不参与早停/模型选择）----
+        self.holdout_metrics = {}
+        if self.test_indices:
+            _h_loss, _h_acc, _h_intra, _h_sim, _h_metrics = self.evaluate(self.test_indices)
+            if _h_metrics:
+                self.holdout_metrics = {k: v for k, v in _h_metrics.items() if k != "confusion_matrix"}
+                self.holdout_metrics.update({
+                    "holdout_accuracy": _h_acc, "holdout_loss": _h_loss,
+                    "selected_epoch": int(self.best_epoch + 1),
+                    "num_holdout_instances": int(len(self.test_indices)),
+                    "num_select_instances": int(len(self.val_indices)),
+                    "num_train_instances": int(len(self.train_indices)),
+                    "selection_protocol": "disjoint",
+                    "train_seed": int(self.training_config._train_seed),
+                    "split_seed": int(self.training_config._split_seed),
+                    "keep_edges": bool(INDUCTIVE_KEEP_EDGES),
+                    "select_set_accuracy_at_selected_epoch": float(self.best_metrics.get("accuracy", 0.0)),
+                })
+                _h_tag = str(globals().get("_MODEL_TAG", "model"))
+                try:
+                    with open(f"holdout_metrics_{_h_tag}.json", "w", encoding="utf-8") as _hf:
+                        json.dump(self.holdout_metrics, _hf, ensure_ascii=False, indent=2, default=float)
+                    logger.info(f"📄 留出集指标已保存: holdout_metrics_{_h_tag}.json")
+                except Exception as _he:
+                    logger.warning(f"⚠️ 留出集指标写 JSON 失败: {_he}")
+                try:
+                    self.save_holdout_predictions(_h_tag)
+                except Exception as _hpe:
+                    logger.warning(f"⚠️ 留出集逐节点预测导出失败: {_hpe}")
+                logger.info(
+                    f"\n🧪 留出集评估（{len(self.test_indices):,} 个节点实例，选定权重 Epoch {self.best_epoch + 1}）："
+                    f"Acc={_h_metrics.get('accuracy', 0):.4f}, Macro-F1={_h_metrics.get('macro_f1', 0):.4f}"
+                )
+
         total_time = time.time() - start_time
         if verbose:
             logger.info(f"\n✅ 训练完成! 总耗时: {total_time / 60:.2f} 分钟")
@@ -2223,6 +2375,7 @@ class HeteroMedDRATrainer:
                                          sum(sorted(self.inductive_holdout)) % (10 ** 9)),
             # 【v1/v2 协议】是否保留留出节点的层级边 —— 协议不同即视为不同实验，禁止互相续训
             "inductive_keep_edges": bool(INDUCTIVE_KEEP_EDGES),
+            "inductive_select_disjoint": bool(INDUCTIVE_SELECT_DISJOINT),
             "node_types": [str(t) for t in self.node_types],
             "model_class": type(self.model).__name__,
             "model_params": int(sum(p.numel() for p in self.model.parameters())),
@@ -2356,7 +2509,7 @@ class HeteroMedDRATrainer:
         if len(self.train_indices) == 0:
             return 0.0, 0.0
 
-        rng = np.random.RandomState(self.training_config.random_state * 1000 + epoch)
+        rng = np.random.RandomState(self.training_config._train_seed * 1000 + epoch)   # 训练种子（未设时 = random_state）
         indices = rng.permutation(self.train_indices)
 
         x_dict = {nt: self.data[nt].x for nt in self.node_types
@@ -3067,7 +3220,17 @@ def run_full_training(
         return None, None, None, None
 
     # 【新增】全局种子（与 SAGE/GAT 一致）
-    _set_seed(training_config.random_state)
+    # 【2026-10-29 多 seed】环境变量覆盖（不改代码即可换训练种子；留出集不受影响）
+    if os.environ.get("MEDDRA_SPLIT_SEED"):
+        training_config.split_seed = int(os.environ["MEDDRA_SPLIT_SEED"])
+    if os.environ.get("MEDDRA_TRAIN_SEED"):
+        training_config.train_seed = int(os.environ["MEDDRA_TRAIN_SEED"])
+    _set_seed(training_config._train_seed)
+    logger.info(
+        f"随机种子: 留出 INDUCTIVE_SEED={INDUCTIVE_SEED}、模型选择集 split_seed={training_config._split_seed}、"
+        f"训练 train_seed={training_config._train_seed}；模型选择协议 MEDDRA_IND_SELECT="
+        f"{'disjoint' if INDUCTIVE_SELECT_DISJOINT else 'holdout'}"
+    )
 
     logger.info("=" * 60)
     logger.info("🏥 MedDRA 训练模式 [noGNN 基线]")
@@ -3104,6 +3267,9 @@ def run_full_training(
             "keep_edges": bool(INDUCTIVE_KEEP_EDGES),
             "hlt_ratio": INDUCTIVE_HLT_RATIO,
             "seed": INDUCTIVE_SEED,
+            "selection_protocol": "disjoint" if INDUCTIVE_SELECT_DISJOINT else "holdout",
+            "train_seed": int(training_config._train_seed),
+            "split_seed": int(training_config._split_seed),
             "num_holdout_nodes": len(inductive_holdout),
             "holdout_node_codes": sorted(inductive_holdout),
             "edge_masking": ("keep_edges (v2; 对 noGNN 无影响)" if INDUCTIVE_KEEP_EDGES
@@ -3169,9 +3335,9 @@ def run_full_training(
     trainer.es_primary_metric = "acc"
     trainer.es_min_delta = 0.001          # 主指标“严格提升”阈值（真实历史回放校准：0.002 会在平台期提前 15 轮停止选中次优权重；≥0.005 严重欠拟合）
     trainer.es_tolerance = 0.005          # 容差带（“同水平”判定）
-    trainer.es_gap_eps = 1e-4             #  Minimum gap improvement required to select a better model inside the tolerance band
+    trainer.es_gap_eps = 1e-4             # 容差带内择优所需的最小 gap 提升
     trainer.es_min_epochs = 60            # 早停保护期：前 60 轮只记录、不累计 patience（≈200轮的30%）
-    trainer.es_loss_min_delta = 1e-4      #  Threshold for deciding that the validation loss is "still decreasing"
+    trainer.es_loss_min_delta = 1e-4      # 验证损失“仍在下降”的判定阈值
     trainer.collapse_weight = 3           # 塌缩轮等价计为几轮无进展（15/3 = 5 轮触发）
     trainer.collapse_gap_ratio = 0.1      # gap 相对参考值的最小下降比例（塌缩判定）
     logger.info(
