@@ -3,10 +3,10 @@ message: "If you use this code, please cite the JBI article and this repository 
 title: "Reproduction package for: A Diagnostic Evaluation of Heterogeneous-Graph Term Embeddings for MedDRA Primary SOC Classification in a Multi-Parent DAG"
 abstract: >-
   Reproduction code and experimental artefacts for a manuscript submitted to the
-  Journal of Biomedical Informatics (JBI). The method embeds MedDRA terms by combining
-  term-name semantics (PubMedBERT) with the five-level multi-parent hierarchy, using a
-  heterogeneous graph encoder and a multi-level weighted contrastive loss with
-  positive-negative mutual exclusion. MedDRA source data are not redistributed;
+  Journal of Biomedical Informatics (JBI). The paper presents a diagnostic evaluation
+  of heterogeneous-graph MedDRA embeddings, combining term-name semantics (PubMedBERT)
+  with the five-level multi-parent hierarchy and quantifying how much of primary SOC
+  classification is structural or recoverable from labelled neighbours. MedDRA source data are not redistributed;
   a synthetic demo dataset is provided for licence-free verification of the code path.
 type: software
 license: MIT
