@@ -23,8 +23,8 @@
 
 ## 需要你在 push/release 前决定
 
-1. **Zenodo DOI**：`.zenodo.json` 与 README 中仍是占位，首次 release 后回填。
-2. **作者元数据**：`.zenodo.json` 目前只有 Zhi Wang，且已注明 provisional；投稿作者确定后同步更新。
+1. **Zenodo DOI**：已回填并核实为 `10.5281/zenodo.23876752`，已写入 `.zenodo.json`、`CITATION.cff`、`README.md` 与投稿稿件的 Data and code availability。
+2. **作者元数据**：`.zenodo.json` / `CITATION.cff` 已包含三位作者（Zhi Wang、Zhitao Xiao、Yan Zhao，均 Tiangong University）；目前仅 Zhi Wang 有 ORCID（`0009-0002-5652-2652`），肖志涛、赵琰的 ORCID 待作者补充后做一次 patch release 同步。
 3. **代码 MD5 溯源**：`01_code/Meddra_full_trainer_SAGE.py` 是英文注释转录版，其 MD5 与官方 C1V1 运行副本不同；如审稿要求逐字一致，请替换为官方运行副本，或在 README 说明“functional equivalent；original script_md5 见 RUN_META”。
 4. **重复文件**：`platform_resources.csv` 同时出现在 `05_resource_ledger/` 与 `07_run_artifacts/`，可保留但 README 已指出 05 是正确目录，07 仅作运行产物留档。
 5. **GitHub Release / Zenodo 归档**：只打包仓库 tracked files；`.git` 本身不进入归档。
