@@ -1,0 +1,25 @@
+{
+  "model_tag": "IND-SAGE",
+  "experiment": "IND-SAGE-MASK",
+  "run_dir": "/kaggle/working/runs/IND-SAGE-MASK/seed44",
+  "cache_dir": "/kaggle/working/meddra_cache",
+  "script_source": "/usr/local/lib/python3.12/dist-packages/colab_kernel_launcher.py",
+  "script_name": "colab_kernel_launcher.py",
+  "script_md5": "d1eec26d73e219ff5c7c4e6daa7cc12a",
+  "cwd": "/kaggle/working",
+  "argv": [
+    "/usr/local/lib/python3.12/dist-packages/colab_kernel_launcher.py",
+    "-f",
+    "/root/.local/share/jupyter/runtime/kernel-4caeebee-44b9-40e9-989a-4a1cf7d0b0b5.json"
+  ],
+  "started_at": "2026-11-04 02:19:33",
+  "env": {
+    "MEDDRA_RUN_DIR": "/kaggle/working/runs/IND-SAGE-MASK/seed44",
+    "MEDDRA_EXPERIMENT": "IND-SAGE-MASK",
+    "MEDDRA_CACHE_DIR": "/kaggle/working/meddra_cache",
+    "MEDDRA_CSV_PATH": "/kaggle/input/datasets/jiuqianqicc/meddra-29-0/MEDDRA_DATA_29_0.csv",
+    "MEDDRA_TRAIN_SEED": "44",
+    "MEDDRA_SPLIT_SEED": "42",
+    "MEDDRA_IND_SELECT": "disjoint"
+  }
+}

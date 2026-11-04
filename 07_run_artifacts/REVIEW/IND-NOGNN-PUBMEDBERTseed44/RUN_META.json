@@ -1,0 +1,24 @@
+{
+  "model_tag": "IND-noGNN",
+  "experiment": "IND-NOGNN-PUBMEDBERT",
+  "run_dir": "/mnt/workspace/JBI/data/jbi_runs/IND-NOGNN-PUBMEDBERT/seed44",
+  "cache_dir": "/mnt/workspace/JBI/data/cache_shared",
+  "script_source": "/mnt/workspace/JBI/review_p2/Meddra_inductive_noGNN.py",
+  "script_name": "Meddra_inductive_noGNN.py",
+  "script_md5": "7c6dee512b3d84dfe66fdc91b18b3c26",
+  "cwd": "/mnt/workspace/JBI/review_p2",
+  "argv": [
+    "Meddra_inductive_noGNN.py"
+  ],
+  "started_at": "2026-11-03 14:32:22",
+  "env": {
+    "MEDDRA_RUN_DIR": "/mnt/workspace/JBI/data/jbi_runs/IND-NOGNN-PUBMEDBERT/seed44",
+    "MEDDRA_EXPERIMENT": "IND-NOGNN-PUBMEDBERT",
+    "MEDDRA_CACHE_DIR": "/mnt/workspace/JBI/data/cache_shared",
+    "MEDDRA_CSV_PATH": "/mnt/workspace/Data/MEDDRA_DATA_29_0.csv",
+    "MEDDRA_TEXT_MODEL_DIR": "/data/hf_models/pubmedbert",
+    "MEDDRA_TRAIN_SEED": "44",
+    "MEDDRA_SPLIT_SEED": "42",
+    "MEDDRA_IND_SELECT": "disjoint"
+  }
+}
