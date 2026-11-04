@@ -1,0 +1,14 @@
+{
+ "LP_train_acc": 1.0,
+ "LP_train_macro_f1": 1.0,
+ "LP_val_acc": 0.9937252007013011,
+ "LP_val_macro_f1": 0.9904113967070496,
+ "LP_test_acc": 0.9913628436176397,
+ "LP_test_macro_f1": 0.9862920416619942,
+ "CS_train_acc": 1.0,
+ "CS_train_macro_f1": 1.0,
+ "CS_val_acc": 0.9937252007013011,
+ "CS_val_macro_f1": 0.9904113967070496,
+ "CS_test_acc": 0.9913628436176397,
+ "CS_test_macro_f1": 0.9862920416619942
+}
