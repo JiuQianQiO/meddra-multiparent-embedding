@@ -91,11 +91,13 @@ HLGT 35 / HLT 177 / PT 2,738 / LLT 9,091. Per-level columns are Macro-F1 within 
 
 | Setting | Model | Acc | Macro-F1 | vs no-graph baseline (pp) |
 |---|---|---|---|---|
-| A (EDGE-MASK) | IND-SAGE-MASK | 0.4228 | 0.2023 | −32.18 |
-| A (EDGE-MASK) | IND-NoGNN-PubMedBERT | 0.7445 | 0.6339 | — (reference) |
+| A (EDGE-MASK) | IND-SAGE-MASK | 0.3993 ± 0.0217 | 0.2068 ± 0.0147 | −34.55 |
+| A (EDGE-MASK) | IND-NoGNN-PubMedBERT | 0.7448 ± 0.0004 | 0.6318 ± 0.0028 | — (reference) |
 | B (EDGE-KEEP) | IND-SAGE-KEEP | **0.9280 ± 0.0013** | **0.8512 ± 0.0052** | **+18.34** |
 
-> IND-SAGE-KEEP is mean ± sample sd over five training seeds; the other two rows are single runs.
+> IND-SAGE-KEEP is mean ± sample sd over five training seeds; IND-SAGE-MASK and IND-NoGNN-PubMedBERT
+> are mean ± sample sd over three seeds (42, 43, 44). The MASK row has wider seed variability because
+> isolated nodes operate at a much lower baseline, but the MASK-versus-NoGNN gap remains stable.
 > KEEP − ancestor-label rule (I5 = 0.8172/0.7167) = +11.08 pp. Model selection is disjoint (weights
 > selected on non-held-out nodes only); first-round values are reported in Appendix B.7.
 
@@ -110,6 +112,8 @@ HLGT 35 / HLT 177 / PT 2,738 / LLT 9,091. Per-level columns are Macro-F1 within 
 | R3/R4 | topology only (first / majority ancestor) | 0.7827 | 0.7193 |
 | R5 | labelled one-hop neighbours | 0.9610 | 0.9421 |
 | **R6** | labelled children → parent → sibling-LLT cascade | **0.9917** | **0.9883** |
+
+| Supervised graph | label propagation (LP) / Correct & Smooth (C&S) | 0.9914 | 0.9863 |
 
 > R6 covers 97.53% of test nodes (fallback to R3). The proposed method exceeds R6 by +0.15/+0.09 pp
 > single-run (+0.23/+0.24 pp over five seeds); the transductive accuracy therefore mostly reflects the
@@ -133,6 +137,9 @@ NoGNN+PubMedBERT 0.8336±0.0025 / 0.7785±0.0033 (n=3).
 **Twin-LLT leakage**: 81.3% of test PTs (2,226/2,738) have an identically coded and named LLT in the
 training set. Splitting test PTs by twin-LLT visibility gives 0.9870 vs 0.9766 accuracy (+1.04 pp,
 z=1.75, two-sided p=0.08), i.e. at most +0.19 pp of the overall 0.9932. The reverse channel is absent.
+
+**B2-ComplEx collapse check**: training loss decreases from 11.99 to 0.45 and embedding norms stay
+stable, so the near-zero Macro-F1 reflects missing term-name semantics rather than collapsed embeddings.
 
 ---
 
