@@ -2,7 +2,7 @@
 MEDDRA_DATA_*.csv
 *.csv.bak
 
-# Training artefacts and caches (large; archived on Zenodo, not in the repository)
+# Training artefacts and caches (large; not included in this repository)
 outputs/
 runs/
 *.pt
