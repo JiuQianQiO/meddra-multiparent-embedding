@@ -1,0 +1,121 @@
+{
+ "groups": {
+  "V1": {
+   "rows": [
+    {
+     "file": "joint_subgroup_diag_V1_S43.json",
+     "run_dir": "/mnt/workspace/JBI/data/jbi_runs_review/V1_S43",
+     "train_seed": 43,
+     "n_cells": {
+      "父∈子∈": 4539,
+      "父∈子∉": 102,
+      "父∉子∈": 491,
+      "父∉子∉": 510
+     },
+     "joint_pp": 1.6457000000000055,
+     "parent_comp_pp": -0.49599999999999644,
+     "child_comp_pp": 2.141700000000002,
+     "parent_net_pp": 0.89,
+     "parent_net_pt_pp": 0.18,
+     "overall_acc": 0.994685
+    },
+    {
+     "file": "joint_subgroup_diag_V1_S44.json",
+     "run_dir": "/mnt/workspace/JBI/data/jbi_runs_review/V1_S44",
+     "train_seed": 44,
+     "n_cells": {
+      "父∈子∈": 4539,
+      "父∈子∉": 102,
+      "父∉子∈": 491,
+      "父∉子∉": 510
+     },
+     "joint_pp": 2.3638999999999966,
+     "parent_comp_pp": -0.5620999999999987,
+     "child_comp_pp": 2.9259999999999953,
+     "parent_net_pp": 1.16,
+     "parent_net_pt_pp": 0.58,
+     "overall_acc": 0.993937
+    },
+    {
+     "file": "joint_subgroup_diag_V1_S45.json",
+     "run_dir": "/mnt/workspace/JBI/data/jbi_runs_review/V1_S45",
+     "train_seed": 45,
+     "n_cells": {
+      "父∈子∈": 4539,
+      "父∈子∉": 102,
+      "父∉子∈": 491,
+      "父∉子∉": 510
+     },
+     "joint_pp": 2.51809999999999,
+     "parent_comp_pp": -0.4079000000000055,
+     "child_comp_pp": 2.9259999999999953,
+     "parent_net_pp": 1.22,
+     "parent_net_pt_pp": 0.32,
+     "overall_acc": 0.99427
+    },
+    {
+     "file": "joint_subgroup_diag_V1_S46.json",
+     "run_dir": "/mnt/workspace/JBI/data/jbi_runs_review/V1_S46",
+     "train_seed": 46,
+     "n_cells": {
+      "父∈子∈": 4539,
+      "父∈子∉": 102,
+      "父∉子∈": 491,
+      "父∉子∉": 510
+     },
+     "joint_pp": 1.7757000000000023,
+     "parent_comp_pp": 0.2526000000000028,
+     "child_comp_pp": 1.5230999999999995,
+     "parent_net_pp": 1.23,
+     "parent_net_pt_pp": 1.22,
+     "overall_acc": 0.993771
+    },
+    {
+     "file": "joint_subgroup_diag_V1.json",
+     "run_dir": "/mnt/workspace/JBI/data/jbi_runs/V1",
+     "train_seed": 42,
+     "n_cells": {
+      "父∈子∈": 4539,
+      "父∈子∉": 102,
+      "父∉子∈": 491,
+      "父∉子∉": 510
+     },
+     "joint_pp": 2.231699999999992,
+     "parent_comp_pp": -0.08329999999999727,
+     "child_comp_pp": 2.3149999999999893,
+     "parent_net_pp": 1.44,
+     "parent_net_pt_pp": 0.84,
+     "overall_acc": 0.99319
+    }
+   ],
+   "stats": {
+    "joint_pp": {
+     "n": 5,
+     "mean": 2.1070199999999972,
+     "sd": 0.3785195794143222
+    },
+    "parent_comp_pp": {
+     "n": 5,
+     "mean": -0.259339999999999,
+     "sd": 0.34015227913392077
+    },
+    "child_comp_pp": {
+     "n": 5,
+     "mean": 2.366359999999996,
+     "sd": 0.5896166661484372
+    },
+    "parent_net_pp": {
+     "n": 5,
+     "mean": 1.188,
+     "sd": 0.1974082065163452
+    },
+    "parent_net_pt_pp": {
+     "n": 5,
+     "mean": 0.6279999999999999,
+     "sd": 0.41631718676989543
+    }
+   }
+  }
+ },
+ "problems": []
+}

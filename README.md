@@ -38,7 +38,7 @@ weighted contrastive loss with positive–negative mutual exclusion.
 | `04_results/` | `results_summary_5tables.md` — consolidated result tables for cross-checking against the manuscript |
 | `05_resource_ledger/` | `platform_resources.csv` — authoritative parameters, memory, peak GPU memory and per-epoch time for 22 configurations. A copy is also retained under `07_run_artifacts/` as a per-release artefact, but `05_resource_ledger/` is the canonical source |
 | `06_split_verification/` | `verify_split_alignment.py`, `test_split_equiv.py`, `split_verification_record.md` — evidence that every run shares one identical split |
-| `07_run_artifacts/` | Per-run `test_metrics_*.json`, `joint_subgroup_diag.json`, `RUN_META.json` (provenance), training histories, and external-baseline `result_B*.json`. Every number in the manuscript traces to these files. |
+| `07_run_artifacts/` | Per-run `test_metrics_*.json`, `joint_subgroup_diag.json`, `RUN_META.json` (provenance), training histories, external-baseline `result_B*.json`, review/inductive holdout predictions and metrics, and the compiled analysis outputs under `analysis_out_20261029/analysis_out/`. Every number in the manuscript traces to these files. |
 
 ---
 
@@ -94,7 +94,7 @@ verifies it member-by-member rather than by size; see `06_split_verification/`.
 
 ## Artefacts
 
-`07_run_artifacts/` contains every JSON/CSV product the manuscript cites (approx. 8.7 MB):
+`07_run_artifacts/` contains every JSON/CSV product the manuscript cites (approx. 22 MB):
 metrics, training histories, joint-diagnosis output, baseline results and provenance records.
 
 Deliberately **excluded** to keep the archive small and avoid redundancy:
